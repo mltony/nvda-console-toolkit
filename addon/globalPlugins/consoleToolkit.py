@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
-#A part of  Tony's Enhancements addon for NVDA
-#Copyright (C) 2019 Tony Malykh
+#A part of  Console Toolkit addon for NVDA
+#Copyright (C) 2019-2020 Tony Malykh
 #This file is covered by the GNU General Public License.
 #See the file COPYING.txt for more details.
 
@@ -19,6 +19,7 @@ import editableText
 import globalPluginHandler
 import gui
 from gui import guiHelper, nvdaControls
+from gui.settingsDialogs import SettingsPanel
 import inputCore
 import itertools
 import json
@@ -75,56 +76,16 @@ def myAssert(condition):
     if not condition:
         raise RuntimeError("Assertion failed")
 
-defaultDynamicKeystrokes = """
-*:F1
-*:F2
-*:F3
-*:F4
-*:F5
-*:F6
-*:F7
-*:F8
-*:F9
-*:F9
-*:F10
-*:F11
-*:F12
-code:Alt+DownArrow
-code:Alt+UpArrow
-code:Alt+Home
-code:Alt+End
-code:Alt+PageUp
-code:Alt+PageDown
-""".strip()
 
-defaultLangMap = '''
-en:[a-zA-Z]
-ru:[а-яА-Я]
-zh_CN:[⺀-⺙⺛-⻳⼀-⿕々〇〡-〩〸-〺〻㐀-䶵一-鿃豈-鶴侮-頻並-龎]
-'''.strip()
 
-module = "tonysEnhancements"
+module = "consoleToolkit"
 def initConfiguration():
     confspec = {
-        "blockDoubleInsert" : "boolean( default=False)",
-        "blockDoubleCaps" : "boolean( default=False)",
-        "blockScrollLock" : "boolean( default=False)",
         "consoleRealtime" : "boolean( default=False)",
         "consoleBeep" : "boolean( default=False)",
-        "nvdaVolume" : "integer( default=100, min=0, max=100)",
-        "busyBeep" : "boolean( default=False)",
-        "dynamicKeystrokesTable" : f"string( default='{defaultDynamicKeystrokes}')",
-        "fixWindowNumber" : "boolean( default=False)",
-        "detectInsertMode" : "boolean( default=False)",
-        "suppressUnselected" : "boolean( default=False)",
-        "enableLangMap" : "boolean( default=False)",
-        "langMap" : f"string( default='{defaultLangMap}')",
-        "quickSearch1" : f"string( default='')",
-        "quickSearch2" : f"string( default='')",
-        "quickSearch3" : f"string( default='')",
         "controlVInConsole" : "boolean( default=False)",
-        "priority" : "integer( default=0, min=0, max=3)",
         "deletePromptMethod" : "integer( default=0, min=0, max=3)",
+        "captureChimeVolume" : "integer( default=5, min=0, max=100)",
     }
     config.conf.spec[module] = confspec
 
@@ -135,168 +96,18 @@ def setConfig(key, value):
     config.conf[module][key] = value
 
 
-def parseDynamicKeystrokes(s):
-    result = set()
-    for line in s.splitlines():
-        tokens = line.strip().split(":")
-        if (len(tokens) == 0) or (len(line) == 0):
-            continue
-        if len(tokens) != 2:
-            raise ValueError(f"Dynamic shortcuts configuration: invalid line: {line}")
-        app = tokens[0]
-        try:
-            kb = keyboardHandler.KeyboardInputGesture.fromName(tokens[1]).identifiers[0]
-        except (KeyError, IndexError):
-            raise ValueError(f"Invalid kb shortcut {tokens[1]} ")
-        result.add((app, kb))
-    return result
-
-dynamicKeystrokes = None
-def reloadDynamicKeystrokes():
-    global dynamicKeystrokes
-    dynamicKeystrokes = parseDynamicKeystrokes(getConfig("dynamicKeystrokesTable"))
-
-
-def parseLangMap(s):
-    result = {}
-    for line in s.splitlines():
-        tokens = line.strip().split(":")
-        if (len(tokens) == 0) or (len(line) == 0):
-            continue
-        if len(tokens) != 2:
-            raise ValueError(f"LangMap configuration: invalid line: {line}")
-        lang = tokens[0]
-        try:
-            r = re.compile(tokens[1])
-        except  Exception as e:
-            raise ValueError(f"Invalid regex for language {lang}: {tokens[1]}: {e}")
-        result[lang] = r
-    return result
-langMap = None
-def reloadLangMap():
-    global langMap
-    langMap = parseLangMap(getConfig("langMap"))
-
-priorityNames = _("Normal,Above normal,High,Realtime").split(",")
-priorityValues = [
-    # https://docs.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setpriorityclass?redirectedfrom=MSDN
-    0x00000020,
-    0x00008000,
-    0x00000080,
-    0x00000100
-]
-
-def updatePriority():
-    index = getConfig("priority")
-    priority = priorityValues[index]
-    result = ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), priority)
-    if result == 0:
-        gui.messageBox(_("Failed to set process priority to %s.") % priorityNames[index], _("Tony's enhancement add-on encountered an error"), wx.OK|wx.ICON_WARNING, None)
-
 addonHandler.initTranslation()
 initConfiguration()
-reloadDynamicKeystrokes()
-reloadLangMap()
-updatePriority()
-class MultilineEditTextDialog(wx.Dialog):
-    def __init__(self, parent, text, title_string, onTextComplete):
-        # Translators: Title of calibration dialog
-        super(MultilineEditTextDialog, self).__init__(parent, title=title_string)
-        self.text = text
-        self.onTextComplete = onTextComplete
-        mainSizer = wx.BoxSizer(wx.VERTICAL)
-        sHelper = gui.guiHelper.BoxSizerHelper(self, orientation=wx.VERTICAL)
-
-        self.textCtrl = wx.TextCtrl(self, style=wx.TE_MULTILINE)
-        self.textCtrl.Bind(wx.EVT_CHAR, self.onChar)
-        self.Bind(wx.EVT_CHAR_HOOK, self.OnKeyUP)
-        sHelper.addItem(self.textCtrl)
-        self.textCtrl.SetValue(text)
-        self.SetFocus()
-        #self.Maximize(True)
-        self.OkButton = sHelper.addItem (wx.Button (self, label = _('OK')))
-        self.OkButton.Bind(wx.EVT_BUTTON, self.onOk)
-        self.cancelButton = sHelper.addItem (wx.Button (self, label = _('Cancel')))
-        self.cancelButton.Bind(wx.EVT_BUTTON, self.onCancel)
-
-    def onChar(self, event):
-        control = event.ControlDown()
-        shift = event.ShiftDown()
-        alt = event.AltDown()
-        keyCode = event.GetKeyCode()
-        if event.GetKeyCode() == 1:
-            # Control+A
-            self.textCtrl.SetSelection(-1,-1)
-        elif event.GetKeyCode() == wx.WXK_HOME:
-            if not any([control, shift, alt]):
-                curPos = self.textCtrl.GetInsertionPoint()
-                lineNum = len(self.textCtrl.GetRange( 0, self.textCtrl.GetInsertionPoint() ).split("\n")) - 1
-                colNum = len(self.textCtrl.GetRange( 0, self.textCtrl.GetInsertionPoint() ).split("\n")[-1])
-                lineText = self.textCtrl.GetLineText(lineNum)
-                m = re.search("^\s*", lineText)
-                if not m:
-                    raise Exception("This regular expression must match always.")
-                indent = len(m.group(0))
-                if indent == colNum:
-                    newColNum = 0
-                else:
-                    newColNum = indent
-                self.textCtrl.SetInsertionPoint(curPos - colNum + newColNum)
-            else:
-                event.Skip()
-        else:
-            event.Skip()
 
 
-    def OnKeyUP(self, event):
-        keyCode = event.GetKeyCode()
-        if keyCode == wx.WXK_ESCAPE:
-            self.text = self.textCtrl.GetValue()
-            self.EndModal(wx.ID_CANCEL)
-            wx.CallAfter(lambda: self.onTextComplete(wx.ID_CANCEL, self.text, None))
-        event.Skip()
-
-    def onOk(self, evt):
-        self.text = self.textCtrl.GetValue()
-        self.EndModal(wx.ID_OK)
-        wx.CallAfter(lambda: self.onTextComplete(wx.ID_OK, self.text, None))
-
-    def onCancel(self, evt):
-        self.text = self.textCtrl.GetValue()
-        self.EndModal(wx.ID_CANCEL)
-        wx.CallAfter(lambda: self.onTextComplete(wx.ID_CANCEL, self.text, None))
-
-
-
-class SettingsDialog(gui.SettingsDialog):
+class SettingsDialog(SettingsPanel):
     # Translators: Title for the settings dialog
-    title = _("Tony's enhancements  settings")
+    title = _("Console Toolkit settings")
 
-    def __init__(self, *args, **kwargs):
-        super(SettingsDialog, self).__init__(*args, **kwargs)
-        self.dynamicKeystrokesTable = getConfig("dynamicKeystrokesTable")
-        self.langMap = getConfig("langMap")
 
     def makeSettings(self, settingsSizer):
         sHelper = gui.guiHelper.BoxSizerHelper(self, sizer=settingsSizer)
 
-      # checkbox Detect insert mode
-        # Translators: Checkbox for insert mode detection
-        label = _("Detect insert mode in text documents and beep on every keystroke when insert mode is on.")
-        self.detectInsertModeCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
-        self.detectInsertModeCheckbox.Value = getConfig("detectInsertMode")
-
-
-      # checkbox block double insert
-        # Translators: Checkbox for block double insert
-        label = _("Block double insert")
-        self.blockDoubleInsertCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
-        self.blockDoubleInsertCheckbox.Value = getConfig("blockDoubleInsert")
-      # checkbox block double caps
-        # Translators: Checkbox for block double caps
-        label = _("Block double Caps Lock")
-        self.blockDoubleCapsCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
-        self.blockDoubleCapsCheckbox.Value = getConfig("blockDoubleCaps")
       # checkbox console realtime
         # Translators: Checkbox for realtime console
         label = _("Speak console output in realtime")
@@ -313,159 +124,28 @@ class SettingsDialog(gui.SettingsDialog):
         self.controlVInConsoleCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
         self.controlVInConsoleCheckbox.Value = getConfig("controlVInConsole")
 
-      # checkbox Busy beep
-        # Translators: Checkbox for busy beep
-        label = _("Beep when NVDA is busy")
-        self.busyBeepCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
-        self.busyBeepCheckbox.Value = getConfig("busyBeep")
-      # checkbox fix windows+Number
-        # Translators: Checkbox for windows_Number
-        label = _("Fix focus being stuck in the taskbar when pressing Windows+Number")
-        self.fixWindowNumberCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
-        self.fixWindowNumberCheckbox.Value = getConfig("fixWindowNumber")
-
-      # checkbox suppress unselected
-        # Translators: Checkbox for suppress unselected
-        label = _("Suppress saying of 'unselected'.")
-        self.suppressUnselectedCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
-        self.suppressUnselectedCheckbox.Value = getConfig("suppressUnselected")
-
-      # NVDA volume slider
-        sizer=wx.BoxSizer(wx.HORIZONTAL)
-        # Translators: slider to select NVDA  volume
-        label=wx.StaticText(self,wx.ID_ANY,label=_("NVDA volume"))
-        slider=wx.Slider(self, wx.NewId(), minValue=0,maxValue=100)
-        slider.SetValue(getConfig("nvdaVolume"))
-        sizer.Add(label)
-        sizer.Add(slider)
-        settingsSizer.Add(sizer)
-        self.nvdaVolumeSlider = slider
-      # Dynamic keystrokes table
-        # Translators: Label for dynamic keystrokes table edit box
-        label = _("Edit dynamic keystrokes table - see add-on documentation for more information")
-        #self.dynamicKeystrokesEdit = gui.guiHelper.LabeledControlHelper(self, _("Dynamic keystrokes table - see add-on documentation for more information"), wx.TextCtrl, style=wx.TE_MULTILINE).control
-        #self.dynamicKeystrokesEdit.Value = getConfig("dynamicKeystrokesTable")
-        self.dynamicButton = sHelper.addItem (wx.Button (self, label = label))
-        self.dynamicButton.Bind(wx.EVT_BUTTON, self.onDynamicClick)
-      # LangMap checkbox and multiline edit button
-        label = _("Enable automatic language switching based on character set")
-        self.langMapCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
-        self.langMapCheckbox.Value = getConfig("enableLangMap")
-        label = _('Edit language map')
-        self.langMapButton = sHelper.addItem (wx.Button (self, label = label))
-        self.langMapButton.Bind(wx.EVT_BUTTON, self.onLangMapClick)
-      # QuickSearch regexp text edit
-        self.quickSearchEdit = gui.guiHelper.LabeledControlHelper(self, _("QuickSearch1 regexp (assigned to PrintScreen)"), wx.TextCtrl).control
-        self.quickSearchEdit.Value = getConfig("quickSearch1")
-      # QuickSearch2 regexp text edit
-        self.quickSearch2Edit = gui.guiHelper.LabeledControlHelper(self, _("QuickSearch2 regexp (assigned to ScrollLock))"), wx.TextCtrl).control
-        self.quickSearch2Edit.Value = getConfig("quickSearch2")
-      # QuickSearch3 regexp text edit
-        self.quickSearch3Edit = gui.guiHelper.LabeledControlHelper(self, _("QuickSearch3 regexp (assigned to Pause)"), wx.TextCtrl).control
-        self.quickSearch3Edit.Value = getConfig("quickSearch3")
-      # checkbox block scroll lock
-        # Translators: Checkbox for blocking scroll lock
-        label = _("Suppress scroll lock mode announcements")
-        self.blockScrollLockCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
-        self.blockScrollLockCheckbox.Value = getConfig("blockScrollLock")
-      # System priority Combo box
-        # Translators: Label for system priority combo box
-        label = _("NVDA process system priority:")
-        self.priorityCombobox = sHelper.addLabeledControl(label, wx.Choice, choices=priorityNames)
-        index = getConfig("priority")
-        self.priorityCombobox.Selection = index
       # Delete method Combo box
         # Translators: Label for delete line method for prompt editing combo box
         label = _("Method of deleting lines for prompt editing:")
         self.deleteMethodCombobox = sHelper.addLabeledControl(label, wx.Choice, choices=deleteMethodNames)
         index = getConfig("deletePromptMethod")
         self.deleteMethodCombobox.Selection = index
+      # Output capture chime  volume slider
+        sizer=wx.BoxSizer(wx.HORIZONTAL)
+        label=wx.StaticText(self,wx.ID_ANY,label=_("Volume of chime while capturing command output"))
+        slider=wx.Slider(self, wx.NewId(), minValue=0,maxValue=100)
+        slider.SetValue(getConfig("captureChimeVolume"))
+        sizer.Add(label)
+        sizer.Add(slider)
+        settingsSizer.Add(sizer)
+        self.captureChimeVolumeSlider = slider
 
-    def dynamicCallback(self, result, text, keystroke):
-        if result == wx.ID_OK:
-            try:
-                parseDynamicKeystrokes(text)
-            except Exception as e:
-                gui.messageBox(f"Error parsing dynamic keystrokes table: {e}",
-                    _("Error"),wx.OK|wx.ICON_INFORMATION,self)
-                self.popupDynamic(text=text)
-
-                return
-
-            self.dynamicKeystrokesTable = text
-
-    def onDynamicClick(self, evt):
-        self.popupDynamic(text=self.dynamicKeystrokesTable)
-
-    def popupDynamic(self, text):
-        title = _('Edit dynamic keystrokes table')
-        gui.mainFrame.prePopup()
-        dialog = MultilineEditTextDialog(self,
-            text=text,
-            title_string=title,
-            onTextComplete=lambda result, text, keystroke: self.dynamicCallback(result, text, keystroke)
-        )
-        result = dialog.ShowModal()
-        gui.mainFrame.postPopup()
-    def langMapCallback(self, result, text, keystroke):
-        if result == wx.ID_OK:
-            try:
-                parseLangMap(text)
-            except Exception as e:
-                gui.messageBox(f"Error parsing language map: {e}",
-                    _("Error"),wx.OK|wx.ICON_INFORMATION,self)
-                self.popupLangMap(text=text)
-                return
-
-            self.langMap = text
-
-    def onLangMapClick(self, evt):
-        self.popupLangMap(text=self.langMap)
-
-    def popupLangMap(self, text):
-        title = _('Edit language amp')
-        gui.mainFrame.prePopup()
-        dialog = MultilineEditTextDialog(self,
-            text=text,
-            title_string=title,
-            onTextComplete=lambda result, text, keystroke: self.langMapCallback(result, text, keystroke)
-        )
-        result = dialog.ShowModal()
-        gui.mainFrame.postPopup()
-
-
-    def onOk(self, evt):
-        try:
-            parseDynamicKeystrokes(self.dynamicKeystrokesTable)
-        except Exception as e:
-            self.dynamicButton.SetFocus()
-            ui.message(f"Error parsing dynamic keystrokes table: {e}")
-            return
-
-        setConfig("blockDoubleInsert", self.blockDoubleInsertCheckbox.Value)
-        setConfig("blockDoubleCaps", self.blockDoubleCapsCheckbox.Value)
+    def onSave(self):
         setConfig("consoleRealtime", self.consoleRealtimeCheckbox.Value)
         setConfig("consoleBeep", self.consoleBeepCheckbox.Value)
         setConfig("controlVInConsole", self.controlVInConsoleCheckbox.Value)
-        setConfig("busyBeep", self.busyBeepCheckbox.Value)
-        setConfig("fixWindowNumber", self.fixWindowNumberCheckbox.Value)
-        setConfig("suppressUnselected", self.suppressUnselectedCheckbox.Value)
-        setConfig("detectInsertMode", self.detectInsertModeCheckbox.Value)
-        setConfig("nvdaVolume", self.nvdaVolumeSlider.Value)
-        setConfig("dynamicKeystrokesTable", self.dynamicKeystrokesTable)
-        reloadDynamicKeystrokes()
-        setConfig("enableLangMap", self.langMapCheckbox.Value)
-        setConfig("langMap", self.langMap)
-        reloadLangMap()
-        setConfig("quickSearch1", self.quickSearchEdit.Value)
-        setConfig("quickSearch2", self.quickSearch2Edit.Value)
-        setConfig("quickSearch3", self.quickSearch3Edit.Value)
-        setConfig("blockScrollLock", self.blockScrollLockCheckbox.Value)
-        updateScrollLockBlocking()
-        setConfig("priority", self.priorityCombobox.Selection)
-        updatePriority()
         setConfig("deletePromptMethod", self.deleteMethodCombobox.Selection)
-        super(SettingsDialog, self).onOk(evt)
+        setConfig("captureChimeVolume", self.captureChimeVolumeSlider.Value)
 
 class Memoize:
     def __init__(self, f):
@@ -589,172 +269,6 @@ class Beeper:
         self.player.stop()
 
 
-originalWaveOpen = None
-originalWatchdogAlive = None
-originalWatchdogAsleep = None
-
-def preWaveOpen(selfself, *args, **kwargs):
-    global originalWaveOpen
-    result = originalWaveOpen(selfself, *args, **kwargs)
-    volume = getConfig("nvdaVolume")
-    volume2 = int(0xFFFF * (volume / 100))
-    volume2 = volume2 | (volume2 << 16)
-    winmm.waveOutSetVolume(selfself._waveout, volume2)
-    return result
-
-def findTableCell(selfself, gesture, movement="next", axis=None, index = 0):
-    from scriptHandler import isScriptWaiting
-    if isScriptWaiting():
-        return
-    formatConfig=config.conf["documentFormatting"].copy()
-    formatConfig["reportTables"]=True
-    try:
-        tableID, origRow, origCol, origRowSpan, origColSpan = selfself._getTableCellCoords(selfself.selection)
-        info = selfself._getTableCellAt(tableID, selfself.selection,origRow, origCol)
-    except LookupError:
-        # Translators: The message reported when a user attempts to use a table movement command
-        # when the cursor is not within a table.
-        ui.message(_("Not in a table cell"))
-        return
-
-    MAX_TABLE_DIMENSION = 500
-
-    edgeFound = False
-    for attempt in range(MAX_TABLE_DIMENSION):
-        tableID, origRow, origCol, origRowSpan, origColSpan = selfself._getTableCellCoords(info)
-        try:
-            info = selfself._getNearestTableCell(tableID, info, origRow, origCol, origRowSpan, origColSpan, movement, axis)
-        except LookupError:
-            edgeFound = True
-            break
-    if not edgeFound:
-        ui.message(_("Cannot find edge of table in this direction"))
-        info = self._getTableCellAt(tableID, self.selection,origRow, origCol)
-        info.collapse()
-        self.selection = info
-        return
-
-    if index > 1:
-        inverseMovement = "next" if movement == "previous" else "previous"
-        for i in range(1, index):
-            tableID, origRow, origCol, origRowSpan, origColSpan = selfself._getTableCellCoords(info)
-            try:
-                info = selfself._getNearestTableCell(tableID, selfself.selection, origRow, origCol, origRowSpan, origColSpan, inverseMovement, axis)
-            except LookupError:
-                ui.message(_("Cannot find {axis} with index {index} in this table").format(**locals()))
-                return
-
-    speech.speakTextInfo(info,formatConfig=formatConfig,reason=controlTypes.REASON_CARET)
-    info.collapse()
-    selfself.selection = info
-
-
-def speakColumn(selfself, gesture):
-    movement = "next"
-    axis = "row"
-    from scriptHandler import isScriptWaiting
-    if isScriptWaiting():
-        return
-    formatConfig=config.conf["documentFormatting"].copy()
-    formatConfig["reportTables"]=True
-    try:
-        tableID, origRow, origCol, origRowSpan, origColSpan = selfself._getTableCellCoords(selfself.selection)
-        info = selfself._getTableCellAt(tableID, selfself.selection,origRow, origCol)
-    except LookupError:
-        # Translators: The message reported when a user attempts to use a table movement command
-        # when the cursor is not within a table.
-        ui.message(_("Not in a table cell"))
-        return
-
-    MAX_TABLE_DIMENSION = 500
-    for attempt in range(MAX_TABLE_DIMENSION):
-        speech.speakTextInfo(info, formatConfig=formatConfig, reason=controlTypes.REASON_CARET)
-        tableID, origRow, origCol, origRowSpan, origColSpan = selfself._getTableCellCoords(info)
-        try:
-            info = selfself._getNearestTableCell(tableID, info, origRow, origCol, origRowSpan, origColSpan, movement, axis)
-        except LookupError:
-            break
-
-wdTime = 0
-wdAsleep = False
-wdTimeout = 0.3 # seconds
-def             preWatchdogAlive():
-    global wdTime, wdAsleep
-    current = time.time()
-    delta = current - wdTime
-    wdTime = current
-    wdAsleep = False
-    originalWatchdogAlive()
-
-def             preWatchdogAsleep():
-    global wdTime, wdAsleep
-    current = time.time()
-    delta = current - wdTime
-    wdTime = current
-    wdAsleep = True
-    originalWatchdogAsleep()
-    wdAsleep = True
-
-class     MyWatchdog(threading.Thread):
-    def __init__(self):
-        super().__init__()
-        self.stopSignal = False
-
-    def run(self):
-        global wdTime, wdAsleep, wdTimeout
-        time.sleep(5)
-        while not self.stopSignal:
-            if getConfig("busyBeep"):
-                while not wdAsleep and (time.time() - wdTime) > wdTimeout:
-                    tones.beep(150, 10, left=25, right=25)
-                    #time.sleep(0.01)
-            time.sleep(0.1)
-
-    def terminate(self):
-        self.stopSignal = True
-
-gestureCounter = 0
-storedText = None
-speakAnywayAfter = 0.1 # seconds
-def checkUpdate(localGestureCounter, attempt, originalTimestamp, gesture=None, spokenAnyway=False):
-    global gestureCounter, storedText
-    if gestureCounter != localGestureCounter:
-        return
-    try:
-        focus = api.getFocusObject()
-        textInfo = focus.makeTextInfo(textInfos.POSITION_CARET)
-        textInfo.expand(textInfos.UNIT_LINE)
-        text = textInfo.text
-    except Exception as e:
-        log.warning(f"Error retrieving text during dynamic keystroke handling: {e}")
-        return
-    if attempt == 0:
-        storedText = text
-    else:
-        if text != storedText:
-            if spokenAnyway:
-                speech.cancelSpeech()
-            speech.speakTextInfo(textInfo, unit=textInfos.UNIT_LINE)
-            return
-    elapsed = time.time() - originalTimestamp
-    if not spokenAnyway and elapsed > speakAnywayAfter:
-        speech.speakTextInfo(textInfo, unit=textInfos.UNIT_LINE)
-        spokenAnyway = True
-    if elapsed < 1.0:
-        sleepTime = 25 # ms
-    elif elapsed < 10:
-        sleepTime = 1000 # ms
-    else:
-        sleepTime = 5000
-    core.callLater(sleepTime, checkUpdate, localGestureCounter, attempt+1, originalTimestamp, spokenAnyway=spokenAnyway)
-
-allModifiers = [
-    winUser.VK_LCONTROL, winUser.VK_RCONTROL,
-    winUser.VK_LSHIFT, winUser.VK_RSHIFT, winUser.VK_LMENU,
-    winUser.VK_RMENU, winUser.VK_LWIN, winUser.VK_RWIN,
-]
-
-
 def executeAsynchronously(gen):
     """
     This function executes a generator-function in such a manner, that allows updates from the operating system to be processed during execution.
@@ -845,53 +359,6 @@ def newReportConsoleText(selfself, line, *args, **kwargs):
             newChunk.speak()
     #mylog(f'newReportConsoleText lock released!')
 
-def processLanguages(command):
-    if isinstance(command, speech.commands.LangChangeCommand):
-        return
-    if not isinstance(command, str):
-        yield command
-        return
-    s = command
-    global langMap
-    if False:
-        langMap = {
-            'en': re.compile(r'[a-zA-Z]'),
-            'ru': re.compile(r'[а-яА-Я]'),
-        }
-    curLang = None
-    i = -1
-    prev = 0
-    while i+1 < len(s):
-        minIndex = None
-        minLang = None
-        for lang, r in langMap.items():
-            if lang == curLang:
-                continue
-            m = r.search(s, pos=i+1)
-            if m is not None:
-                if minIndex is None or m.start(0) < minIndex:
-                    minIndex = m.start(0)
-                    minLang = lang
-        if minLang is not None:
-            if minIndex > prev:
-                yield s[prev:minIndex]
-            yield speech.commands.LangChangeCommand(minLang)
-            curLang = minLang
-            i = minIndex
-            prev = minIndex
-        else:
-            break
-    if i < len(s):
-        i = max(i, 0)
-        yield s[i:]
-
-def newSpeechSpeak(speechSequence, *args, **kwargs):
-    sequence = speechSequence
-    if getConfig('enableLangMap'):
-        sequence = [subcommand for command in sequence for subcommand in processLanguages(command)]
-        #mylog(str(sequence))
-    return originalSpeechSpeak(sequence, *args, **kwargs)
-
 def newCancelSpeech(*args, **kwargs):
     global currentSpeechChunk, latestSpeechChunk
     #mylog(f'newCancelSpeech pre acquire')
@@ -900,30 +367,6 @@ def newCancelSpeech(*args, **kwargs):
         currentSpeechChunk = latestSpeechChunk = None
     #mylog(f'newCancelSpeech lock released!')
     return originalCancelSpeech(*args, **kwargs)
-
-originalSpeakSelectionChange = None
-originalCaretMovementScriptHelper = None
-performingShiftGesture = False
-def preSpeakSelectionChange(oldInfo, newInfo, *args, **kwargs):
-    if getConfig('suppressUnselected') and not performingShiftGesture:
-        # Setting speakUnselected to false if user is not intending to select/unselect things
-        if len(args) >= 2:
-            args[1] = False
-        else:
-            kwargs['speakUnselected'] = False
-    return originalSpeakSelectionChange(oldInfo, newInfo, *args, **kwargs)
-
-def updateScrollLockBlocking():
-    doBlock = getConfig("blockScrollLock")
-    TOGGLE_KEYS = {
-        winUser.VK_CAPITAL,
-        winUser.VK_NUMLOCK,
-    }
-    if not doBlock:
-        TOGGLE_KEYS.add(winUser.VK_SCROLL)
-    keyboardHandler.KeyboardInputGesture.TOGGLE_KEYS = frozenset(TOGGLE_KEYS)
-
-updateScrollLockBlocking()
 
 class SingleLineEditTextDialog(wx.Dialog):
     # This is a single line text edit window.
@@ -1118,7 +561,6 @@ def executeAsynchronously(gen):
 # Just some random unicode character that is not likely to appear anywhere.
 # This character is used for prompt editing automation
 controlCharacter = "➉" # U+2789, Dingbat circled sans-serif digit ten
-#controlCharacter2 = "➊" # U+278A, 'DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT ONE' (U+278A)
 
 
 
@@ -1453,55 +895,13 @@ def captureAsync(obj):
     raise Exception(message)
 
 
-
-
-
-logSpeech = False
-if True:
-    from speech.priorities import Spri
-    import traceback
-    originalSpeak = speech.speak
-    def speak(
-        speechSequence,
-        symbolLevel = None,
-        priority: Spri = Spri.NORMAL
-    ):
-        if logSpeech:
-            mylog(" ".join([s for s in speechSequence if isinstance(s, str)]))
-            for line in traceback.format_stack():
-                mylog("    " + line.strip())
-        return originalSpeak(speechSequence, symbolLevel, priority)
-    speech.speak = speak
-    tones.beep(500, 500)
-if False:
-    from NVDAObjects.UIA.winConsoleUIA import consoleUIAWindow
-    from NVDAObjects import NVDAObject
-    def _get_isPresentableFocusAncestor(self):
-        if isinstance(self, consoleUIAWindow):
-            import tones
-            tones.beep(500, 50)
-            return False
-        orig(self)
-
-
-
-    #consoleUIAWindow._get_isPresentableFocusAncestor = _get_isPresentableFocusAncestor
-    #orig = NVDAObject._get_isPresentableFocusAncestor
-    #NVDAObject._get_isPresentableFocusAncestor = _get_isPresentableFocusAncestor
-    orig2 = NVDAObject.event_focusEntered
-    NVDAObject.event_focusEntered = lambda self: False
-
-    tones.beep(500, 500)
-
-
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
-    scriptCategory = _("Tony's Enhancements")
+    scriptCategory = _("Console toolkit")
 
     def __init__(self, *args, **kwargs):
         super(GlobalPlugin, self).__init__(*args, **kwargs)
         self.createMenu()
         self.injectHooks()
-        self.injectTableFunctions()
         self.lastConsoleUpdateTime = 0
         self.beeper = Beeper()
 
@@ -1511,52 +911,19 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             pass
 
     def createMenu(self):
-        def _popupMenu(evt):
-            gui.mainFrame._popupSettingsDialog(SettingsDialog)
-        self.prefsMenuItem = gui.mainFrame.sysTrayIcon.preferencesMenu.Append(wx.ID_ANY, _("Tony's enhancements..."))
-        gui.mainFrame.sysTrayIcon.Bind(wx.EVT_MENU, _popupMenu, self.prefsMenuItem)
+        gui.settingsDialogs.NVDASettingsDialog.categoryClasses.append(SettingsDialog)
 
 
     def terminate(self):
         self.removeHooks()
-        prefMenu = gui.mainFrame.sysTrayIcon.preferencesMenu
-        prefMenu.Remove(self.prefsMenuItem)
+        gui.settingsDialogs.NVDASettingsDialog.categoryClasses.remove(SettingsDialog)
 
-    quickSearchGestures = ",PrintScreen,ScrollLock,Pause".split(",")
     def injectHooks(self):
-        global originalWaveOpen, originalWatchdogAlive, originalWatchdogAsleep, originalReportNewText, originalSpeakSelectionChange, originalCaretMovementScriptHelper, originalCancelSpeech, originalSpeechSpeak, originalTerminalGainFocus, originalNVDAObjectFfocusEntered
-        self.originalExecuteGesture = inputCore.InputManager.executeGesture
-        inputCore.InputManager.executeGesture = lambda selfself, gesture, *args, **kwargs: self.preExecuteGesture(selfself, gesture, *args, **kwargs)
-        #self.originalCalculateNewText = behaviors.LiveText._calculateNewText
-        #behaviors.LiveText._calculateNewText = lambda selfself, *args, **kwargs: self.preCalculateNewText(selfself, *args, **kwargs)
+        global originalReportNewText, originalCancelSpeech, originalTerminalGainFocus, originalNVDAObjectFfocusEntered
         originalReportNewText = behaviors.LiveText._reportNewText
         behaviors.LiveText._reportNewText = newReportConsoleText
-
-        originalWaveOpen = nvwave.WavePlayer.open
-        nvwave.WavePlayer.open = preWaveOpen
-        originalWatchdogAlive = watchdog.alive
-        watchdog.alive = preWatchdogAlive
-        originalWatchdogAsleep = watchdog.asleep
-        watchdog.asleep = preWatchdogAsleep
-        self.myWatchdog = MyWatchdog()
-        self.myWatchdog.setDaemon(True)
-        self.myWatchdog.start()
-        originalSpeakSelectionChange = speech.speakSelectionChange
-        speech.speakSelectionChange = preSpeakSelectionChange
         originalCancelSpeech = speech.cancelSpeech
         speech.cancelSpeech = newCancelSpeech
-        originalSpeechSpeak = speech.speak
-        speech.speak = newSpeechSpeak
-
-        for i in [1,2,3]:
-            configKey = f"quickSearch{i}"
-            script = lambda selfself, gesture, configKey=configKey: self.script_quickSearch(selfself, gesture, getConfig(configKey))
-            script.category = "Tony's enhancements"
-            script.__name__ = _("QuickSearch") + str(i)
-            script.__doc__ = _("Performs QuickSearch back or forward in editables according to quickSearch{i} regexp").format(**locals())
-            setattr(editableText.EditableText, f"script_quickSearch{i}", script)
-            editableText.EditableText._EditableText__gestures[f"kb:{self.quickSearchGestures[i]}"] = f"quickSearch{i}"
-            editableText.EditableText._EditableText__gestures[f"kb:Shift+{self.quickSearchGestures[i]}"] = f"quickSearch{i}"
         if True:
             # Apparently we need to monkey patch in two places to avoid terminal title being spoken when we switch to it from edit prompt window.
             # behaviors.Terminal.event_gainFocus is needed for both legacy and UIA implementation,
@@ -1574,158 +941,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             behaviors.Terminal._Terminal__gestures["kb:NVDA+E"] = "editPrompt"
 
     def  removeHooks(self):
-        global originalWaveOpen, originalReportNewText
-        inputCore.InputManager.executeGesture = self.originalExecuteGesture
-        #behaviors.LiveText._calculateNewText = self.originalCalculateNewText
         behaviors.LiveText._reportNewText = originalReportNewText
-        nvwave.WavePlayer.open = originalWaveOpen
-        watchdog.alive = originalWatchdogAlive
-        watchdog.asleep = originalWatchdogAsleep
-        self.myWatchdog.terminate()
-        speech.speakSelectionChange = originalSpeakSelectionChange
         speech.cancelSpeech = originalCancelSpeech
-        speech.speak = originalSpeechSpeak
-        for i in [1,2,3]:
-            delattr(editableText.EditableText, f"script_quickSearch{i}")
-            del editableText.EditableText._EditableText__gestures[f"kb:{self.quickSearchGestures[i]}"]
-            del editableText.EditableText._EditableText__gestures[f"kb:Shift+{self.quickSearchGestures[i]}"]
         behaviors.Terminal.event_gainFocus = originalTerminalGainFocus
         NVDAObject.event_focusEntered = originalNVDAObjectFfocusEntered
         del behaviors.Terminal.script_editPrompt
         del behaviors.Terminal._Terminal__gestures["kb:NVDA+E"]
-
-    windowsSwitchingRe = re.compile(r':windows\+\d$')
-    typingKeystrokeRe = re.compile(r':((shift\+)?[A-Za-z0-9]|space)$')
-    shiftSelectionKeystroke = re.compile(r':(control\+)?shift\+((up|down|left|right)Arrow|home|end|pageUp|pageDown)$')
-    def preExecuteGesture(self, selfself, gesture, *args, **kwargs):
-        global gestureCounter, editorMovingCaret, performingShiftGesture
-        gestureCounter += 1
-        editorMovingCaret = False
-        if (
-            getConfig("blockDoubleInsert")  and
-            gesture.vkCode == winUser.VK_INSERT and
-            not gesture.isNVDAModifierKey
-        ):
-            tones.beep(500, 50)
-            return
-        if (
-            getConfig("blockDoubleCaps")  and
-            gesture.vkCode == winUser.VK_CAPITAL and
-            not gesture.isNVDAModifierKey
-        ):
-            tones.beep(500, 50)
-            return
-
-        kb = gesture.identifiers
-        if len(kb) == 0:
-            pass
-        else:
-            kb = kb[0]
-        focus = api.getFocusObject()
-        appName = focus.appModule.appName
-        if(
-            dynamicKeystrokes is not None and (
-                ("*", kb) in dynamicKeystrokes
-                or (appName, kb) in dynamicKeystrokes
-            )
-        ):
-            core.callLater(0,
-                checkUpdate,
-                gestureCounter, 0, time.time(), gesture
-            )
-
-        if getConfig("fixWindowNumber") and self.windowsSwitchingRe.search(kb) is not None:
-
-            executeAsynchronously(self.asyncSwitchWindowHandler(gestureCounter))
-        if getConfig("detectInsertMode") and self.typingKeystrokeRe.search(kb):
-            text = None
-            caret = None
-            executeAsynchronously(self.insertModeDetector(gestureCounter, text, caret))
-        if getConfig('suppressUnselected') and self.shiftSelectionKeystroke.search(kb) is not None:
-            performingShiftGesture = True
-        else:
-            performingShiftGesture = False
-        return self.originalExecuteGesture(selfself, gesture, *args, **kwargs)
-
-    def asyncSwitchWindowHandler(self, thisGestureCounter):
-        global gestureCounter
-        timeout = time.time() + 2
-        yield 1
-      # step 1. wait for all modifiers to be released
-        while True:
-            if time.time() > timeout:
-                return
-            if gestureCounter != thisGestureCounter:
-                return
-            status = [
-                winUser.getKeyState(k) & 32768
-                for k in allModifiers
-            ]
-            if not any(status):
-                break
-            yield 1
-      # Step 2
-        #for i in range(100):
-        yield 50
-        if gestureCounter != thisGestureCounter:
-            return
-        if True:
-            focus = api.getFocusObject()
-            if focus.appModule.appName == "explorer":
-                if focus.windowClassName == "TaskListThumbnailWnd":
-                    kbdEnter = keyboardHandler.KeyboardInputGesture.fromName("Enter")
-                    kbdEnter.send()
-                    tones.beep(100, 20)
-                    return
-
-    def getCurrentLineAndCaret(self):
-        focus = api.getFocusObject()
-        caretInfo = focus.makeTextInfo(textInfos.POSITION_SELECTION)
-        if len(caretInfo.text) > 0:
-            return "", -10
-        lineInfo = caretInfo.copy()
-        lineInfo.expand(textInfos.UNIT_LINE)
-        lineText = lineInfo.text
-        # Command line prompt reports every line containing ~120 whitespaces, therefore it appears as if insert mode is on and is overwriting spaces.
-        # To work around that, stripping whitespaces  from the right
-        lineText = lineText.rstrip()
-        lineInfo.setEndPoint(caretInfo, 'endToEnd')
-        caretOffset = len(lineInfo.text)
-        return lineText, caretOffset
-
-
-    def insertModeDetector(self, thisGestureCounter, originalText, originalCaret):
-        global gestureCounter
-        timeout = time.time() + 0.5
-        try:
-            originalText, originalCaret = self.getCurrentLineAndCaret()
-        except:
-            return
-        if originalCaret < 0:
-            # Something is selected, never mind
-            return
-        yield 10
-
-        while True:
-            if gestureCounter != thisGestureCounter:
-                return
-            if time.time() > timeout:
-                return
-            try:
-                text, caret = self.getCurrentLineAndCaret()
-            except:
-                return
-            if (text != originalText) or (caret != originalCaret):
-                # state has changed, we will check for signs of insert mode, but we won't be running this loop anymore
-                if (caret == originalCaret + 1) and (len(text) == len(originalText)):
-                    try:
-                        if (text[:originalCaret] == originalText[:originalCaret]) and (text[originalCaret+1:] == originalText[originalCaret+1:]) and (text[originalCaret] != originalText[originalCaret]):
-                            # Boom! Insert mode detected!
-                            tones.beep(150, 30)
-                    except IndexError:
-                        pass
-                return
-            yield 10
 
     def preCalculateNewText(self, selfself, *args, **kwargs):
         oldLines = args[1]
@@ -1746,144 +967,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
                 #self.lastConsoleUpdateTime = time.time()
             speech.cancelSpeech()
         return outLines
-
-    def injectTableFunctions(self):
-        self.injectTableFunction(
-            scriptName="firstColumn",
-            kb="Control+Alt+Home",
-            doc="Move to the first column in table",
-            movement="previous",
-            axis="column",
-        )
-        self.injectTableFunction(
-            scriptName="lastColumn",
-            kb="Control+Alt+End",
-            doc="Move to the last column in table",
-            movement="next",
-            axis="column",
-        )
-        self.injectTableFunction(
-            scriptName="firstRow",
-            kb="Control+Alt+PageUp",
-            doc="Move to the first row in table",
-            movement="previous",
-            axis="row",
-        )
-        self.injectTableFunction(
-            scriptName="lastRow",
-            kb="Control+Alt+PageDown",
-            doc="Move to the last row in table",
-            movement="next",
-            axis="row",
-        )
-        for i in range(1, 11):
-            self.injectTableFunction(
-                scriptName=f"jumpToColumn{i}",
-                kb="NVDA+Control+%d" % (i%10),
-                doc="Move to the %d-th column in table" % i,
-                movement="previous",
-                axis="column",
-                index = i,
-            )
-            self.injectTableFunction(
-                scriptName=f"jumpToRow{i}",
-                kb="NVDA+Alt+%d" % (i%10),
-                doc="Move to the %d-th row in table" % i,
-                movement="previous",
-                axis="row",
-                index = i,
-            )
-        self.injectTableFunction(
-            scriptName="readColumn",
-            kb="NVDA+Shift+DownArrow",
-            doc="Read column starting from current cell",
-            function=speakColumn,
-        )
-
-    def injectTableFunction(self, scriptName, kb, doc, function=findTableCell, *args, **kwargs):
-        cls = documentBase.DocumentWithTableNavigation
-        funcName = "script_%s" % scriptName
-        script = lambda self,gesture: function(self, gesture, *args, **kwargs)
-        script.__doc__ = doc
-        script.category = self.scriptCategory
-        setattr(cls, funcName, script)
-        cls._DocumentWithTableNavigation__gestures["kb:%s" % kb] = scriptName
-
-    @script(description='Increase NVDA volume.', gestures=['kb:NVDA+control+PageUp'])
-    def script_increaseVolume(self, gesture):
-        self.adjustVolume(5)
-
-    @script(description='Decrease NVDA volume.', gestures=['kb:NVDA+control+PageDown'])
-    def script_decreaseVolume(self, gesture):
-        self.adjustVolume(-5)
-
-    def adjustVolume(self, increment):
-        volume = getConfig("nvdaVolume")
-        volume += increment
-        if volume > 100:
-            volume = 100
-        if volume < 0:
-            volume = 0
-        setConfig("nvdaVolume", volume)
-        message = _("NVDA volume %d") % volume
-        ui.message(message)
-
-    def script_quickSearch(self, selfself, gesture, regex):
-        if "shift" in gesture._get_modifierNames():
-            direction = -1
-        else:
-            direction = 1
-        caretInfo = selfself.makeTextInfo(textInfos.POSITION_SELECTION)
-        caretInfo.collapse(end=(direction > 0))
-        info = selfself.makeTextInfo(textInfos.POSITION_ALL)
-        info.setEndPoint(caretInfo, 'startToStart' if direction > 0 else 'endToEnd')
-        text = info.text
-        text = text.replace("\r\n", "\n") # Fix for Notepad++
-        text = text.replace("\r", "\n") # Fix for AkelPad
-        matches = list(re.finditer(regex, text, re.MULTILINE))
-        if len(matches) == 0:
-            self.beeper.fancyBeep('HF', 100, left=25, right=25)
-            return
-        if direction > 0:
-            match = matches[0]
-            #adjustment = match.start()
-            preLines = text[:match.start()].split("\n")
-            if len(preLines) > 1:
-                # Go to the beginning of the line to avoid some inconsistent behavior
-                caretInfo.expand(textInfos.UNIT_PARAGRAPH)
-                caretInfo.collapse(end=False)
-                caretInfo.move(textInfos.UNIT_PARAGRAPH, len(preLines) - 1)
-                caretInfo.expand(textInfos.UNIT_PARAGRAPH)
-                caretInfo.collapse(end=False)
-            caretInfo.move(textInfos.UNIT_CHARACTER, len(preLines[-1]))
-        else:
-            match = matches[-1]
-            #adjustment = match.start() - len(text)
-            preLines = text[:match.start()].split("\n")
-            postLines = text[match.start():].split("\n")
-            if len(postLines) > 1:
-                q = -len(postLines) + 1
-                # Go to the beginning of the line to avoid some inconsistent behavior
-                caretInfo.expand(textInfos.UNIT_PARAGRAPH)
-                caretInfo.collapse(end=False)
-                caretInfo.move(textInfos.UNIT_PARAGRAPH, -len(postLines) + 1)
-            caretInfo.expand(textInfos.UNIT_PARAGRAPH)
-            caretInfo.collapse(end=False)
-            caretInfo.move(textInfos.UNIT_CHARACTER, len(preLines[-1]))
-        #caretInfo.move(textInfos.UNIT_CHARACTER, adjustment)
-        caretInfo.move(textInfos.UNIT_CHARACTER, match.end() - match.start(), endPoint='end')
-        caretInfo.updateSelection()
-        lineInfo = caretInfo.copy()
-        lineInfo.expand(textInfos.UNIT_PARAGRAPH)
-        lineInfo.setEndPoint(caretInfo, 'startToStart')
-        mylog(lineInfo.text)
-        speech.speakTextInfo(lineInfo, unit=textInfos.UNIT_WORD, reason=controlTypes.REASON_CARET)
-
-    @script(description='Log speech stacktrace.', gestures=['kb:NVDA+Delete'])
-    def script_log(self, gesture):
-        global logSpeech
-        logSpeech = not logSpeech
-        ui.message(f"logSpeech={logSpeech}")
 
 
 class ConsoleControlV(NVDAObject):

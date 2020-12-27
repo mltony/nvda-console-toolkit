@@ -40,6 +40,7 @@ from scriptHandler import script, willSayAllResume
 import speech
 import string
 import struct
+import subprocess
 import tempfile
 import textInfos
 import threading
@@ -89,6 +90,7 @@ def initConfiguration():
         "captureSuffix" : f"string( default='|less -c 2>&1')",
         "captureChimeVolume" : "integer( default=5, min=0, max=100)",
         "captureOpenOption" : "integer( default=0, min=0, max=3)",
+        "captureTimeout" : "integer( default=60, min=0, max=1000000)",
     }
     config.conf.spec[module] = confspec
 
@@ -141,6 +143,9 @@ class SettingsDialog(SettingsPanel):
         self.captureOpenOptionCombobox = sHelper.addLabeledControl(label, wx.Choice, choices=captureOpenOptionNames)
         index = getConfig("captureOpenOption")
         self.captureOpenOptionCombobox.Selection = index
+      # Capture timeout edit
+        self.captureTimeoutEdit = sHelper.addLabeledControl(_("Capture timeout in seconds:"), wx.TextCtrl)
+        self.captureTimeoutEdit.Value = str(getConfig("captureTimeout"))
         
       # Output capture chime  volume slider
         sizer=wx.BoxSizer(wx.HORIZONTAL)
@@ -153,12 +158,20 @@ class SettingsDialog(SettingsPanel):
         self.captureChimeVolumeSlider = slider
 
     def onSave(self):
+        try:
+            if int(self.captureTimeoutEdit.Value) <= 0:
+                raise Exception()
+        except:
+            self.captureTimeoutEdit.SetFocus()
+            ui.message(_("Capture timeout must be a positive integer"))
+            return
         setConfig("consoleRealtime", self.consoleRealtimeCheckbox.Value)
         setConfig("consoleBeep", self.consoleBeepCheckbox.Value)
         setConfig("controlVInConsole", self.controlVInConsoleCheckbox.Value)
         setConfig("deletePromptMethod", self.deleteMethodCombobox.Selection)
         setConfig("captureSuffix", self.captureSuffixEdit.Value)
         setConfig("captureOpenOption", self.captureOpenOptionCombobox.Selection)
+        setConfig("captureTimeout", int(self.captureTimeoutEdit.Value))
         setConfig("captureChimeVolume", self.captureChimeVolumeSlider.Value)
 
 class Memoize:
@@ -961,7 +974,7 @@ def injectKeystroke(hWnd, vkCode):
 captureBeeper = Beeper()
 captureStopFlag = False
 def captureAsync(obj, rawCommand):
-    timeoutSeconds = 60
+    timeoutSeconds = getConfig("captureTimeout")
     timeout = time.time() + timeoutSeconds
     start = time.time()
     result = [f"$ {rawCommand}"]
@@ -1032,7 +1045,7 @@ captureOpenOptionNames = [
     _("Open in Notepad++"),
 ]
 def presentCaptureResult(lines):
-    output = "\n".join(lines)
+    output = "\r\n".join(lines)
     option = getConfig("captureOpenOption")
     if option == CAPTURE_COPY_TO_CLIPBOARD:
         api.copyToClip(output)
@@ -1045,10 +1058,10 @@ def presentCaptureResult(lines):
     elif option in [CAPTION_OPEN_NOTEPAD, CAPTION_OPEN_NPP]:
         # Prepare temp file
         tf = tempfile.NamedTemporaryFile(delete=False, prefix="temp_")
-        tf.write(output)
+        tf.write(output.encode('utf-8'))
         tf.close()
         if option == CAPTION_OPEN_NOTEPAD:
-            os.system(f"""notepad "{tf.name}" """)
+            subprocess.Popen(f"""notepad "{tf.name}" """)
         elif option ==         CAPTION_OPEN_NPP:
             os.system(f"""notepad++ "{tf.name}" """)
     else:

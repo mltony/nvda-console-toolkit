@@ -1,5 +1,5 @@
 # nvda-console-toolkit
-Console Toolkit is NVDA add-on, that provides accessibility improvements for Windows console, also known as Command prompt. Some of the features may work in alternative terminals, such as Cygwin, PuTTY and Windows Terminal, however, the add-on has only been carefully tested with the default Windows Console.
+Console Toolkit is NVDA add-on, that provides accessibility improvements for Windows console, also known as Command prompt. Some of the features may work in alternative terminals, such as Cygwin, PuTTY and Windows Terminal, however, the add-on has only been carefully tested with the default Windows Console. SSH users might find this add-on especially handy.
 
 Some of the features were previously part of [Tony's enhancements add-on](https://github.com/mltony/nvda-tonys'enhancements/).
 
@@ -51,7 +51,7 @@ Troubleshooting:
 
 Note: this feature is experimental. Please read  this section carefully and make sure you understand how it works before reporting issues.
 
-While in "Edit prompt" window, press `Control+Enter` to capture command output. Add-on will play a long chime sound, and it will last as long as the add-on is capturing the output of currently running command, or until timeout has been reached. Alternatively, press `NVDA+E` to interrupt capturing.
+While in "Edit prompt" window, press `Control+Enter` to capture command output. This add-on is capable of capturing large output that spans multiple screens, although when output is larger than 10 screens capturing process takes significant time to complete. Add-on will play a long chime sound, and it will last as long as the add-on is capturing the output of currently running command, or until timeout has been reached. Alternatively, press `NVDA+E` to interrupt capturing.
 
 When "Use UI Automation to access the Windows Console when available" feature is enabled in NVDA settings, you can switch to other windows while capturing is going on. However, if this option is disabled, then NVDA is using a legacy console code, that only works when consoel is focused, and therefore switching to any other window will pause capturing.
 

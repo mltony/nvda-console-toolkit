@@ -7,7 +7,7 @@ Some of the features were previously part of [Tony's enhancements add-on](https:
 
 [Console toolkit](https://github.com/mltony/nvda-console-toolkit/releases/latest/download/consoleToolkit.nvda-addon)
 
-## Real-time console output
+## Real-time console speech
 
 This option makes NVDA to speak new lines immediately as they appear in console output, instead of queueing new speech utterances. For example, if NVDA is busy speaking a line that appeared on the screen 1 minute ago, and now a new line appears, this option will cancel speaking the old line and start speaking the new line right away, thus providing a more real-time feedback on what's happening in console window.
 

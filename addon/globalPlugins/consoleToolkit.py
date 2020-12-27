@@ -40,6 +40,7 @@ from scriptHandler import script, willSayAllResume
 import speech
 import string
 import struct
+import tempfile
 import textInfos
 import threading
 import time
@@ -54,7 +55,7 @@ import wx
 winmm = ctypes.windll.winmm
 
 
-debug = True
+debug = False
 if debug:
     import threading
     LOG_FILE_NAME = "C:\\Users\\tony\\Dropbox\\1.txt"
@@ -81,11 +82,13 @@ def myAssert(condition):
 module = "consoleToolkit"
 def initConfiguration():
     confspec = {
-        "consoleRealtime" : "boolean( default=False)",
-        "consoleBeep" : "boolean( default=False)",
-        "controlVInConsole" : "boolean( default=False)",
-        "deletePromptMethod" : "integer( default=0, min=0, max=3)",
+        "consoleRealtime" : "boolean( default=True)",
+        "consoleBeep" : "boolean( default=True)",
+        "controlVInConsole" : "boolean( default=True)",
+        "deletePromptMethod" : "integer( default=3, min=0, max=3)",
+        "captureSuffix" : f"string( default='|less -c 2>&1')",
         "captureChimeVolume" : "integer( default=5, min=0, max=100)",
+        "captureOpenOption" : "integer( default=0, min=0, max=3)",
     }
     config.conf.spec[module] = confspec
 
@@ -130,6 +133,15 @@ class SettingsDialog(SettingsPanel):
         self.deleteMethodCombobox = sHelper.addLabeledControl(label, wx.Choice, choices=deleteMethodNames)
         index = getConfig("deletePromptMethod")
         self.deleteMethodCombobox.Selection = index
+      # Capture suffix edit
+        self.captureSuffixEdit = sHelper.addLabeledControl(_("Suffix to be appendedd to commands in output capturing mode."), wx.TextCtrl)
+        self.captureSuffixEdit.Value = getConfig("captureSuffix")
+      # capture open option combo box
+        label = _("Open captured output in")
+        self.captureOpenOptionCombobox = sHelper.addLabeledControl(label, wx.Choice, choices=captureOpenOptionNames)
+        index = getConfig("captureOpenOption")
+        self.captureOpenOptionCombobox.Selection = index
+        
       # Output capture chime  volume slider
         sizer=wx.BoxSizer(wx.HORIZONTAL)
         label=wx.StaticText(self,wx.ID_ANY,label=_("Volume of chime while capturing command output"))
@@ -145,6 +157,8 @@ class SettingsDialog(SettingsPanel):
         setConfig("consoleBeep", self.consoleBeepCheckbox.Value)
         setConfig("controlVInConsole", self.controlVInConsoleCheckbox.Value)
         setConfig("deletePromptMethod", self.deleteMethodCombobox.Selection)
+        setConfig("captureSuffix", self.captureSuffixEdit.Value)
+        setConfig("captureOpenOption", self.captureOpenOptionCombobox.Selection)
         setConfig("captureChimeVolume", self.captureChimeVolumeSlider.Value)
 
 class Memoize:
@@ -475,6 +489,113 @@ class SingleLineEditTextDialog(wx.Dialog):
             suppressTerminalTitleAnnouncement = False
         core.callLater(1000, reset)
 
+class MultilineEditTextDialog(wx.Dialog):
+    def __init__(self, parent, text, onTextComplete):
+        self.tabValue = "    "
+        # Translators: Title of  dialog
+        title_string = _("Command output")
+        super(MultilineEditTextDialog, self).__init__(parent, title=title_string)
+        self.text = text
+        self.onTextComplete = onTextComplete
+        mainSizer = wx.BoxSizer(wx.VERTICAL)
+        sHelper = gui.guiHelper.BoxSizerHelper(self, orientation=wx.VERTICAL)
+
+        self.textCtrl = wx.TextCtrl(self, style=wx.TE_MULTILINE|wx.TE_DONTWRAP)
+        self.textCtrl.Bind(wx.EVT_CHAR, self.onChar)
+        self.Bind(wx.EVT_CHAR_HOOK, self.OnKeyUP)
+        sHelper.addItem(self.textCtrl)
+        self.textCtrl.SetValue(text)
+        self.SetFocus()
+        self.Maximize(True)
+
+    def onChar(self, event):
+        control = event.ControlDown()
+        shift = event.ShiftDown()
+        alt = event.AltDown()
+        keyCode = event.GetKeyCode()
+        if event.GetKeyCode() in [10, 13]:
+            # 13 means Enter
+            # 10 means Control+Enter
+            modifiers = [
+                control, shift, alt
+            ]
+            if not any(modifiers):
+                # Just pure enter without any modifiers
+                # Perform Autoindent
+                curPos = self.textCtrl.GetInsertionPoint
+                lineNum = len(self.textCtrl.GetRange( 0, self.textCtrl.GetInsertionPoint() ).split("\n")) - 1
+                lineText = self.textCtrl.GetLineText(lineNum)
+                m = re.search("^\s*", lineText)
+                if m:
+                    self.textCtrl.WriteText("\n" + m.group(0))
+                else:
+                    self.textCtrl.WriteText("\n")
+            else:
+                modifierNames = [
+                    "control",
+                    "shift",
+                    "alt",
+                ]
+                modifierTokens = [
+                    modifierNames[i]
+                    for i in range(len(modifiers))
+                    if modifiers[i]
+                ]
+                keystrokeName = "+".join(modifierTokens + ["Enter"])
+                self.keystroke = fromNameEnglish(keystrokeName)
+                self.text = self.textCtrl.GetValue()
+                self.EndModal(wx.ID_OK)
+                #wx.CallAfter(lambda: self.onTextComplete(wx.ID_OK, self.text, self.keystroke))
+        elif event.GetKeyCode() == wx.WXK_TAB:
+            if alt or control:
+                event.Skip()
+            elif not shift:
+                # Just Tab
+                self.textCtrl.WriteText(self.tabValue)
+            else:
+                # Shift+Tab
+                curPos = self.textCtrl.GetInsertionPoint()
+                lineNum = len(self.textCtrl.GetRange( 0, self.textCtrl.GetInsertionPoint() ).split("\n")) - 1
+                priorText = self.textCtrl.GetRange( 0, self.textCtrl.GetInsertionPoint() )
+                text = self.textCtrl.GetValue()
+                postText = text[len(priorText):]
+                if priorText.endswith(self.tabValue):
+                    newText = priorText[:-len(self.tabValue)] + postText
+                    self.textCtrl.SetValue(newText)
+                    self.textCtrl.SetInsertionPoint(curPos - len(self.tabValue))
+        elif event.GetKeyCode() == 1:
+            # Control+A
+            self.textCtrl.SetSelection(-1,-1)
+        elif event.GetKeyCode() == wx.WXK_HOME:
+            if not any([control, shift, alt]):
+                curPos = self.textCtrl.GetInsertionPoint()
+                #lineNum = len(self.textCtrl.GetRange( 0, self.textCtrl.GetInsertionPoint() ).split("\n")) - 1
+                #colNum = len(self.textCtrl.GetRange( 0, self.textCtrl.GetInsertionPoint() ).split("\n")[-1])
+                _, colNum,lineNum = self.textCtrl.PositionToXY(self.textCtrl.GetInsertionPoint())
+                lineText = self.textCtrl.GetLineText(lineNum)
+                m = re.search("^\s*", lineText)
+                if not m:
+                    raise Exception("This regular expression must match always.")
+                indent = len(m.group(0))
+                if indent == colNum:
+                    newColNum = 0
+                else:
+                    newColNum = indent
+                newPos = self.textCtrl.XYToPosition(newColNum, lineNum)
+                self.textCtrl.SetInsertionPoint(newPos)
+            else:
+                event.Skip()
+        else:
+            event.Skip()
+
+
+    def OnKeyUP(self, event):
+        keyCode = event.GetKeyCode()
+        if keyCode == wx.WXK_ESCAPE:
+            self.text = self.textCtrl.GetValue()
+            self.EndModal(wx.ID_CANCEL)
+            #wx.CallAfter(lambda: self.onTextComplete(wx.ID_CANCEL, self.text, None))
+        event.Skip()
 
 def popupEditTextDialog(text, onTextComplete):
     gui.mainFrame.prePopup()
@@ -606,10 +727,12 @@ def makeUnicodeInput(string):
 
 def script_editPrompt(self, gesture):
     executeAsynchronously(editPrompt(self, gesture))
-script_editPrompt.category = "Tony's enhancements"
+script_editPrompt.category = "Console toolkit"
 script_editPrompt.__name__ = _("Edit prompt")
 script.__doc__ = _("Opens accessible window that allows to edit current command line prompt.")
 def editPrompt(obj, gesture):
+    global captureStopFlag
+    captureStopFlag = True
     UIAMode = isinstance(obj, UIA)
     text = obj.makeTextInfo(textInfos.POSITION_ALL).text
     if controlCharacter in text:
@@ -739,6 +862,11 @@ def editPrompt(obj, gesture):
         mylog(f"{text1}")
         mylog(f"oldText:")
         mylog(f"{oldText}")
+    # Strip capturing suffix if found
+    oldText = oldText.rstrip()
+    suffix = getConfig("captureSuffix").rstrip()
+    if oldText.endswith(suffix):
+        oldText = oldText[:-len(suffix)]
     onTextComplete = lambda result, newText, keystroke: executeAsynchronously(updatePrompt(result, newText, keystroke, oldText, obj))
     popupEditTextDialog(oldText, onTextComplete)
 
@@ -748,16 +876,17 @@ DELETE_METHOD_ESCAPE = 1
 DELETE_METHOD_CONTROL_K = 2
 DELETE_METHOD_BACKSPACE = 3
 deleteMethodNames = [
-    _("Control+C (recommended): works in both cmd.exe and bash, but leaves previous prompt visible on the screen; doesn't work in emacs"),
+    _("Control+C: works in both cmd.exe and bash, but leaves previous prompt visible on the screen; doesn't work in emacs; sometimes unreliable on slow SSH connections"),
     _("Escape: works only in cmd.exe"),
     _("Control+A Control+K: works in bash and emacs; doesn't work in cmd.exe"),
-    _("Backspace: works in all environments; however slower and may cause corruption if the length of the line has changed"),
+    _("Backspace (recommended): works in all environments; however slower and may cause corruption if the length of the line has changed"),
 ]
 
 def updatePrompt(result, text, keystroke, oldText, obj):
     for delay in waitUntilModifiersReleased():
         yield delay
     doCapture = False
+    rawCommand = text
     if result == wx.ID_OK:
         modifiers = keystroke.modifierNames
         mainKeyName = keystroke.mainKeyName
@@ -765,7 +894,7 @@ def updatePrompt(result, text, keystroke, oldText, obj):
             modifiers == ["control"]
             and mainKeyName == "enter"
         ):
-            text = updateCommandForCapturing(text)
+            text += getConfig("captureSuffix")
             doCapture = True
 
     obj.setFocus()
@@ -790,17 +919,12 @@ def updatePrompt(result, text, keystroke, oldText, obj):
         winUser.SendInput(inputs)
     if doCapture:
         fromNameEnglish("Enter").send()
-        #keyboardHandler.KeyboardInputGesture.fromName("Enter").send()
-        #with keyboardHandler.ignoreInjection():
-            #winUser.SendInput(makeVkInput(winUser.VK_RETURN))
-        executeAsynchronously(captureAsync(obj))
+        global captureStopFlag
+        captureStopFlag = False
+        executeAsynchronously(captureAsync(obj, rawCommand))
     elif result == wx.ID_OK:
         keystroke.send()
 
-def updateCommandForCapturing(command):
-    #result = f"({command} && echo {controlCharacter2}) |& more -p"
-    result = f"{command} |& less -c"
-    return result
 
 allModifiers = [
     winUser.VK_LCONTROL, winUser.VK_RCONTROL,
@@ -835,11 +959,12 @@ def injectKeystroke(hWnd, vkCode):
     winUser.PostMessage(hWnd, WM_KEYUP, vkCode, 1 | (1<<30) | (1<<31))
 
 captureBeeper = Beeper()
-def captureAsync(obj):
+captureStopFlag = False
+def captureAsync(obj, rawCommand):
     timeoutSeconds = 60
     timeout = time.time() + timeoutSeconds
     start = time.time()
-    result = []
+    result = [f"$ {rawCommand}"]
     previousLines = []
     previousLinesCounter = 0
     captureBeeper.fancyBeep("CDGA", length=5000, left=5, right=5, repetitions =int(math.ceil(timeoutSeconds / 5)) )
@@ -847,6 +972,9 @@ def captureAsync(obj):
         while time.time() < timeout:
             t = time.time() - start
             mylog(f"{t:0.3}")
+            if captureStopFlag:
+                ui.message(_("Capture interrupted!"))
+                return
             textInfo = obj.makeTextInfo(textInfos.POSITION_ALL)
             if isinstance(obj, UIA):
                 lines = textInfo.text.split("\r\n")
@@ -878,8 +1006,7 @@ def captureAsync(obj):
                 # Sending q letter to quit less command
                 #watchdog.cancellableSendMessage(obj.windowHandle, WM_CHAR, 0x71, 0)
                 injectKeystroke(obj.windowHandle, 0x51)
-                api.copyToClip("\n".join(result))
-                ui.message(_("Command output copied to clipboard"))
+                presentCaptureResult(result)                
                 return
             elif pageComplete:
                 result += lines[:-1]
@@ -894,7 +1021,40 @@ def captureAsync(obj):
     ui.message(message)
     raise Exception(message)
 
-
+CAPTURE_COPY_TO_CLIPBOARD = 0
+CAPTURE_OPEN_TEMP_WINDOW = 1
+CAPTION_OPEN_NOTEPAD = 2
+CAPTION_OPEN_NPP = 3
+captureOpenOptionNames = [
+    _("Copy to clipboard"),
+    _("Open in temporary window"),
+    _("Open in Notepad"),
+    _("Open in Notepad++"),
+]
+def presentCaptureResult(lines):
+    output = "\n".join(lines)
+    option = getConfig("captureOpenOption")
+    if option == CAPTURE_COPY_TO_CLIPBOARD:
+        api.copyToClip(output)
+        ui.message(_("Command output copied to clipboard"))
+    elif option == CAPTURE_OPEN_TEMP_WINDOW:
+        gui.mainFrame.prePopup()
+        d = MultilineEditTextDialog(gui.mainFrame, output, None)
+        result = d.Show()
+        gui.mainFrame.postPopup()
+    elif option in [CAPTION_OPEN_NOTEPAD, CAPTION_OPEN_NPP]:
+        # Prepare temp file
+        tf = tempfile.NamedTemporaryFile(delete=False, prefix="temp_")
+        tf.write(output)
+        tf.close()
+        if option == CAPTION_OPEN_NOTEPAD:
+            os.system(f"""notepad "{tf.name}" """)
+        elif option ==         CAPTION_OPEN_NPP:
+            os.system(f"""notepad++ "{tf.name}" """)
+    else:
+        raise Exception(f"Unknown option {option}")
+    
+    
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
     scriptCategory = _("Console toolkit")
 

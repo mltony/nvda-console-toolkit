@@ -146,7 +146,7 @@ class SettingsDialog(SettingsPanel):
       # Capture timeout edit
         self.captureTimeoutEdit = sHelper.addLabeledControl(_("Capture timeout in seconds:"), wx.TextCtrl)
         self.captureTimeoutEdit.Value = str(getConfig("captureTimeout"))
-        
+
       # Output capture chime  volume slider
         sizer=wx.BoxSizer(wx.HORIZONTAL)
         label=wx.StaticText(self,wx.ID_ANY,label=_("Volume of chime while capturing command output"))
@@ -262,9 +262,9 @@ class Beeper:
             result = map(operator.add, result, unpacked)
         maxInt = 1 << (8 * intSize)
         result = map(lambda x : x %maxInt, result)
-        packed = struct.pack("<%dQ" % (bufSize // intSize), *result)    
+        packed = struct.pack("<%dQ" % (bufSize // intSize), *result)
         return packed
-    
+
     def fancyBeep(self, chord, length, left=10, right=10, repetitions=1 ):
         self.player.stop()
         buffer = self.prepareFancyBeep(self, chord, length, left, right)
@@ -742,7 +742,28 @@ def script_editPrompt(self, gesture):
     executeAsynchronously(editPrompt(self, gesture))
 script_editPrompt.category = "Console toolkit"
 script_editPrompt.__name__ = _("Edit prompt")
-script.__doc__ = _("Opens accessible window that allows to edit current command line prompt.")
+script_editPrompt.__doc__ = _("Opens accessible window that allows to edit current command line prompt.")
+
+def script_captureOutput(self, gesture):
+    executeAsynchronously(captureOutputAsync(self, gesture))
+script_captureOutput.category = "Console toolkit"
+script_captureOutput.__name__ = _("Capture command output")
+script_captureOutput.__doc__ = _("Executes command, captures output and presents it in accessible window.")
+
+def captureOutputAsync(self, gesture):
+    captureSuffix = getConfig("captureSuffix")
+    d = getVkCodes()
+    for delay in waitUntilModifiersReleased():
+        yield delay
+
+    inputs = []
+    inputs+= makeVkInput(d['end'])
+    inputs += makeUnicodeInput(captureSuffix)
+    inputs += makeVkInput([winUser.VK_LCONTROL, winUser.VK_RETURN])
+    with keyboardHandler.ignoreInjection():
+        winUser.SendInput(inputs)
+    executeAsynchronously(captureAsync(self, None))
+
 def editPrompt(obj, gesture):
     global captureStopFlag
     captureStopFlag = True
@@ -752,7 +773,7 @@ def editPrompt(obj, gesture):
         ui.message(_("Control character found on the screen; clear window and try again."))
         return
     d = getVkCodes()
-    
+
     inputs = []
     inputs.extend(makeVkInput(d['end']))
     inputs.extend(makeUnicodeInput(controlCharacter))
@@ -761,7 +782,7 @@ def editPrompt(obj, gesture):
     controlCharactersAtStart = 1
     with keyboardHandler.ignoreInjection():
         winUser.SendInput(inputs)
-    
+
     try:
         timeoutSeconds = 1
         timeout = time.time() + timeoutSeconds
@@ -806,7 +827,7 @@ def editPrompt(obj, gesture):
             if not found:
                 msg = _("Timed out while waiting for control characters to appear.")
                 ui.message(msg)
-                raise Exception(msg)            
+                raise Exception(msg)
             if len(indices) > 3:
                 raise Exception(f"Unexpected: encountered {len(indices)} control characters on second iteration in UIA mode!")
             text2 = text[indices[1] + 1 : indices[2]]
@@ -977,7 +998,9 @@ def captureAsync(obj, rawCommand):
     timeoutSeconds = getConfig("captureTimeout")
     timeout = time.time() + timeoutSeconds
     start = time.time()
-    result = [f"$ {rawCommand}"]
+    result = []
+    if rawCommand is not None:
+        result.append(f"$ {rawCommand}")
     previousLines = []
     previousLinesCounter = 0
     captureBeeper.fancyBeep("CDGA", length=5000, left=5, right=5, repetitions =int(math.ceil(timeoutSeconds / 5)) )
@@ -1019,7 +1042,7 @@ def captureAsync(obj, rawCommand):
                 # Sending q letter to quit less command
                 #watchdog.cancellableSendMessage(obj.windowHandle, WM_CHAR, 0x71, 0)
                 injectKeystroke(obj.windowHandle, 0x51)
-                presentCaptureResult(result)                
+                presentCaptureResult(result)
                 return
             elif pageComplete:
                 result += lines[:-1]
@@ -1066,8 +1089,8 @@ def presentCaptureResult(lines):
             os.system(f"""notepad++ "{tf.name}" """)
     else:
         raise Exception(f"Unknown option {option}")
-    
-    
+
+
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
     scriptCategory = _("Console toolkit")
 
@@ -1107,11 +1130,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             originalNVDAObjectFfocusEntered = NVDAObject.event_focusEntered
             NVDAObject.event_focusEntered = nvdaObjectFfocusEntered
             behaviors.Terminal.script_editPrompt = script_editPrompt
+            behaviors.Terminal.script_captureOutput = script_captureOutput
             try:
                 behaviors.Terminal._Terminal__gestures
             except AttributeError:
                 behaviors.Terminal._Terminal__gestures = {}
             behaviors.Terminal._Terminal__gestures["kb:NVDA+E"] = "editPrompt"
+            behaviors.Terminal._Terminal__gestures["kb:Control+Enter"] = "captureOutput"
 
     def  removeHooks(self):
         behaviors.LiveText._reportNewText = originalReportNewText
@@ -1119,7 +1144,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         behaviors.Terminal.event_gainFocus = originalTerminalGainFocus
         NVDAObject.event_focusEntered = originalNVDAObjectFfocusEntered
         del behaviors.Terminal.script_editPrompt
+        del behaviors.Terminal.script_captureOutput
         del behaviors.Terminal._Terminal__gestures["kb:NVDA+E"]
+        del behaviors.Terminal._Terminal__gestures["kb:Control+Enter"]
 
     def preCalculateNewText(self, selfself, *args, **kwargs):
         oldLines = args[1]

@@ -751,22 +751,33 @@ script_captureOutput.__name__ = _("Capture command output")
 script_captureOutput.__doc__ = _("Executes command, captures output and presents it in accessible window.")
 
 def captureOutputAsync(self, gesture):
-    captureSuffix = getConfig("captureSuffix")
-    d = getVkCodes()
+    global captureStopFlag
+    # That's the worst multithreading ever. Hope that if there's another thread running, they'll see this flag before  this function finishes. I'm ashamed of this.
+    captureStopFlag = True
     for delay in waitUntilModifiersReleased():
         yield delay
-
+    captureSuffix = getConfig("captureSuffix")
+    prompt = []
+    for token in extractCurrentPrompt(self, prompt):
+        yield token
+    prompt = prompt[0]
+    prompt = prompt.rstrip()
     inputs = []
-    inputs+= makeVkInput(d['end'])
-    inputs += makeUnicodeInput(captureSuffix)
-    inputs += makeVkInput([winUser.VK_LCONTROL, winUser.VK_RETURN])
+    if not prompt.endswith(captureSuffix):
+        d = getVkCodes()
+        inputs+= makeVkInput(d['end'])
+        inputs += makeUnicodeInput(captureSuffix)
+    inputs += makeVkInput([winUser.VK_RETURN])
     with keyboardHandler.ignoreInjection():
         winUser.SendInput(inputs)
+    captureStopFlag =False
+        
     executeAsynchronously(captureAsync(self, None))
 
-def editPrompt(obj, gesture):
-    global captureStopFlag
-    captureStopFlag = True
+def extractCurrentPrompt(obj, promptResult):
+    # promptResult must be an empty list, where we will write the output
+    # Poor man's pass by reference
+    # There is no other good way to return a value, since we're yielding timeouts
     UIAMode = isinstance(obj, UIA)
     text = obj.makeTextInfo(textInfos.POSITION_ALL).text
     if controlCharacter in text:
@@ -896,8 +907,16 @@ def editPrompt(obj, gesture):
         mylog(f"{text1}")
         mylog(f"oldText:")
         mylog(f"{oldText}")
+    promptResult.append(oldText)
+def editPrompt(obj, gesture):
+    global captureStopFlag
+    captureStopFlag = True
+    prompt = []
+    for token in extractCurrentPrompt(obj, prompt):
+        yield token
+    prompt = prompt[0]
     # Strip capturing suffix if found
-    oldText = oldText.rstrip()
+    oldText = prompt.rstrip()
     suffix = getConfig("captureSuffix").rstrip()
     if oldText.endswith(suffix):
         oldText = oldText[:-len(suffix)]

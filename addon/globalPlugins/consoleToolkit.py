@@ -419,29 +419,27 @@ class SingleLineEditTextDialog(wx.Dialog):
         shift = event.ShiftDown()
         alt = event.AltDown()
         keyCode = event.GetKeyCode()
-        if event.GetKeyCode() in [10, 13]:
-            # 13 means Enter
+        if event.GetKeyCode() in [10,winUser.VK_RETURN]:
             # 10 means Control+Enter
             modifiers = [
                 control, shift, alt
             ]
-            if True:
-                modifierNames = [
-                    "control",
-                    "shift",
-                    "alt",
-                ]
-                modifierTokens = [
-                    modifierNames[i]
-                    for i in range(len(modifiers))
-                    if modifiers[i]
-                ]
-                keystrokeName = "+".join(modifierTokens + ["Enter"])
-                self.keystroke = fromNameEnglish(keystrokeName)
-                self.text = self.textCtrl.GetValue()
-                self.temporarilySuspendTerminalTitleAnnouncement()
-                self.EndModal(wx.ID_OK)
-                wx.CallAfter(lambda: self.onTextComplete(wx.ID_OK, self.text, self.keystroke))
+            modifierNames = [
+                "control",
+                "shift",
+                "alt",
+            ]
+            modifierTokens = [
+                modifierNames[i]
+                for i in range(len(modifiers))
+                if modifiers[i]
+            ]
+            keystrokeName = "+".join(modifierTokens + ["Enter"])
+            self.keystroke = fromNameEnglish(keystrokeName)
+            self.text = self.textCtrl.GetValue()
+            self.temporarilySuspendTerminalTitleAnnouncement()
+            self.EndModal(wx.ID_OK)
+            wx.CallAfter(lambda: self.onTextComplete(wx.ID_OK, self.text, self.keystroke))
         elif event.GetKeyCode() == wx.WXK_TAB:
             if alt or control:
                 event.Skip()
@@ -459,8 +457,7 @@ class SingleLineEditTextDialog(wx.Dialog):
                     newText = priorText[:-len(self.tabValue)] + postText
                     self.textCtrl.SetValue(newText)
                     self.textCtrl.SetInsertionPoint(curPos - len(self.tabValue))
-        elif event.GetKeyCode() == 1:
-            # Control+A
+        elif event.GetKeyCode() == wx.WXK_CONTROL_A:
             self.textCtrl.SetSelection(-1,-1)
         elif event.GetKeyCode() == wx.WXK_HOME:
             if not any([control, shift, alt]):
@@ -526,8 +523,7 @@ class MultilineEditTextDialog(wx.Dialog):
         shift = event.ShiftDown()
         alt = event.AltDown()
         keyCode = event.GetKeyCode()
-        if event.GetKeyCode() in [10, 13]:
-            # 13 means Enter
+        if event.GetKeyCode() in [10, winUser.VK_RETURN]:
             # 10 means Control+Enter
             modifiers = [
                 control, shift, alt
@@ -576,8 +572,7 @@ class MultilineEditTextDialog(wx.Dialog):
                     newText = priorText[:-len(self.tabValue)] + postText
                     self.textCtrl.SetValue(newText)
                     self.textCtrl.SetInsertionPoint(curPos - len(self.tabValue))
-        elif event.GetKeyCode() == 1:
-            # Control+A
+        elif event.GetKeyCode() == wx.WXK_CONTROL_A:
             self.textCtrl.SetSelection(-1,-1)
         elif event.GetKeyCode() == wx.WXK_HOME:
             if not any([control, shift, alt]):
@@ -1123,7 +1118,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
     def chooseNVDAObjectOverlayClasses(self, obj, clsList):
         if getConfig("controlVInConsole") and obj.windowClassName == 'ConsoleWindowClass':
             clsList.insert(0, ConsoleControlV)
-            pass
 
     def createMenu(self):
         gui.settingsDialogs.NVDASettingsDialog.categoryClasses.append(SettingsDialog)
@@ -1139,23 +1133,22 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         behaviors.LiveText._reportNewText = newReportConsoleText
         originalCancelSpeech = speech.cancelSpeech
         speech.cancelSpeech = newCancelSpeech
-        if True:
-            # Apparently we need to monkey patch in two places to avoid terminal title being spoken when we switch to it from edit prompt window.
-            # behaviors.Terminal.event_gainFocus is needed for both legacy and UIA implementation,
-            # but in legacy it speaks window title, while in UIA mode it speaks current line in the terminal
-            # NVDAObject.event_focusEntered speaks window title in UIA mode.
-            originalTerminalGainFocus = behaviors.Terminal.event_gainFocus
-            behaviors.Terminal.event_gainFocus = terminalGainFocus
-            originalNVDAObjectFfocusEntered = NVDAObject.event_focusEntered
-            NVDAObject.event_focusEntered = nvdaObjectFfocusEntered
-            behaviors.Terminal.script_editPrompt = script_editPrompt
-            behaviors.Terminal.script_captureOutput = script_captureOutput
-            try:
-                behaviors.Terminal._Terminal__gestures
-            except AttributeError:
-                behaviors.Terminal._Terminal__gestures = {}
-            behaviors.Terminal._Terminal__gestures["kb:NVDA+E"] = "editPrompt"
-            behaviors.Terminal._Terminal__gestures["kb:Control+Enter"] = "captureOutput"
+        # Apparently we need to monkey patch in two places to avoid terminal title being spoken when we switch to it from edit prompt window.
+        # behaviors.Terminal.event_gainFocus is needed for both legacy and UIA implementation,
+        # but in legacy it speaks window title, while in UIA mode it speaks current line in the terminal
+        # NVDAObject.event_focusEntered speaks window title in UIA mode.
+        originalTerminalGainFocus = behaviors.Terminal.event_gainFocus
+        behaviors.Terminal.event_gainFocus = terminalGainFocus
+        originalNVDAObjectFfocusEntered = NVDAObject.event_focusEntered
+        NVDAObject.event_focusEntered = nvdaObjectFfocusEntered
+        behaviors.Terminal.script_editPrompt = script_editPrompt
+        behaviors.Terminal.script_captureOutput = script_captureOutput
+        try:
+            behaviors.Terminal._Terminal__gestures
+        except AttributeError:
+            behaviors.Terminal._Terminal__gestures = {}
+        behaviors.Terminal._Terminal__gestures["kb:NVDA+E"] = "editPrompt"
+        behaviors.Terminal._Terminal__gestures["kb:Control+Enter"] = "captureOutput"
 
     def  removeHooks(self):
         behaviors.LiveText._reportNewText = originalReportNewText

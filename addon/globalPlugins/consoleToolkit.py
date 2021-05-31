@@ -1,3 +1,4 @@
+_
 # -*- coding: UTF-8 -*-
 #A part of  Console Toolkit addon for NVDA
 #Copyright (C) 2019-2020 Tony Malykh
@@ -688,7 +689,8 @@ def executeAsynchronously(gen):
 
 # Just some random unicode character that is not likely to appear anywhere.
 # This character is used for prompt editing automation
-controlCharacter = "➉" # U+2789, Dingbat circled sans-serif digit ten
+#controlCharacter = "➉" # U+2789, Dingbat circled sans-serif digit ten
+controlCharacter = "⌂" # character code 127
 
 
 
@@ -839,7 +841,7 @@ def extractCurrentPrompt(obj, promptResult):
     finally:
         inputs = []
         inputs.extend(makeVkInput(d['home']))
-        for _ in range(controlCharactersAtStart):
+        for dummy in range(controlCharactersAtStart):
             inputs.extend(makeVkInput(d['delete']))
         inputs.extend(makeVkInput(d['end']))
         inputs.extend(makeVkInput(d['backspace']))
@@ -957,7 +959,7 @@ def updatePrompt(result, text, keystroke, oldText, obj):
         inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("K")]))
     elif method == DELETE_METHOD_BACKSPACE:
         inputs.extend(makeVkInput(winUser.VK_END))
-        for _ in range(len(oldText)):
+        for dummy in range(len(oldText)):
             inputs.extend(makeVkInput(winUser.VK_BACK))
     else:
         raise Exception(f"Unknown method {method}!")
@@ -1227,5 +1229,6 @@ class PuttyControlV(NVDAObject):
                 input.ii.ki.wScan = ord(ch)
                 input.ii.ki.dwFlags = winUser.KEYEVENTF_UNICODE|direction
                 inputs.append(input)
-        winUser.SendInput(inputs)
+        with keyboardHandler.ignoreInjection():
+            winUser.SendInput(inputs)
         core.callLater(100, ui.message, _("Pasted"))

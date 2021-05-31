@@ -35,7 +35,6 @@ import nvwave
 import operator
 import os
 import re
-import sayAllHandler
 from scriptHandler import script, willSayAllResume
 import speech
 import string
@@ -356,7 +355,7 @@ class SpeechChunk:
 
 currentSpeechChunk = None
 latestSpeechChunk = None
-speechChunksLock = threading.Lock()
+speechChunksLock = threading.RLock()
 originalReportNewText = None
 originalSpeechSpeak = None
 originalCancelSpeech = None
@@ -1118,6 +1117,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
     def chooseNVDAObjectOverlayClasses(self, obj, clsList):
         if getConfig("controlVInConsole") and obj.windowClassName == 'ConsoleWindowClass':
             clsList.insert(0, ConsoleControlV)
+        if getConfig("controlVInConsole") and obj.windowClassName == 'PuTTY':
+            clsList.insert(0, PuttyControlV)
+        
 
     def createMenu(self):
         gui.settingsDialogs.NVDASettingsDialog.categoryClasses.append(SettingsDialog)
@@ -1191,3 +1193,39 @@ class ConsoleControlV(NVDAObject):
         watchdog.cancellableSendMessage(self.parent.windowHandle, WM_COMMAND, 0xfff1, 0)
 
     #@script(description='Edit prompt', gestures=['kb:NVDA+E'])
+    
+    
+allModifiers = [
+    winUser.VK_LCONTROL, winUser.VK_RCONTROL,
+    winUser.VK_LSHIFT, winUser.VK_RSHIFT, winUser.VK_LMENU,
+    winUser.VK_RMENU, winUser.VK_LWIN, winUser.VK_RWIN,
+]
+class PuttyControlV(NVDAObject):
+    @script(description='Paste from clipboard', gestures=['kb:Control+V'])
+    def script_paste(self, gesture):
+        timestamp = time.time()
+        timeout = timestamp + 5
+        while True:
+            if time.time() > timeout:
+                raise Exception("Please release keyboard modifiers in a timely fashion!")
+            status = [
+                winUser.getKeyState(k) & 32768
+                for k in allModifiers
+            ]
+            if not any(status):
+                break
+            time.sleep(0.03)
+            api.processPendingEvents(processEventQueue=False)
+        clipboard = api.getClipData()
+        clipboard = clipboard.replace("\r\n", "\n").replace("\r", "\n")
+        inputs = []
+        for ch in clipboard:
+            for direction in (0,winUser.KEYEVENTF_KEYUP): 
+                input = winUser.Input()
+                input.type = winUser.INPUT_KEYBOARD
+                input.ii.ki = winUser.KeyBdInput()
+                input.ii.ki.wScan = ord(ch)
+                input.ii.ki.dwFlags = winUser.KEYEVENTF_UNICODE|direction
+                inputs.append(input)
+        winUser.SendInput(inputs)
+        core.callLater(100, ui.message, _("Pasted"))

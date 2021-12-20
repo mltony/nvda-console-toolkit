@@ -1,4 +1,3 @@
-_
 # -*- coding: UTF-8 -*-
 #A part of  Console Toolkit addon for NVDA
 #Copyright (C) 2019-2020 Tony Malykh
@@ -27,6 +26,7 @@ import json
 import keyboardHandler
 from logHandler import log
 import math
+import mouseHandler
 import NVDAHelper
 from NVDAObjects import behaviors, NVDAObject
 from NVDAObjects.IAccessible import IAccessible
@@ -435,7 +435,7 @@ class SingleLineEditTextDialog(wx.Dialog):
                 if modifiers[i]
             ]
             keystrokeName = "+".join(modifierTokens + ["Enter"])
-            self.keystroke = fromNameEnglish(keystrokeName)
+            self.keystroke = fromNameSmart(keystrokeName)
             self.text = self.textCtrl.GetValue()
             self.temporarilySuspendTerminalTitleAnnouncement()
             self.EndModal(wx.ID_OK)
@@ -551,7 +551,7 @@ class MultilineEditTextDialog(wx.Dialog):
                     if modifiers[i]
                 ]
                 keystrokeName = "+".join(modifierTokens + ["Enter"])
-                self.keystroke = fromNameEnglish(keystrokeName)
+                self.keystroke = fromNameSmart(keystrokeName)
                 self.text = self.textCtrl.GetValue()
                 self.EndModal(wx.ID_OK)
                 #wx.CallAfter(lambda: self.onTextComplete(wx.ID_OK, self.text, self.keystroke))
@@ -611,7 +611,7 @@ def popupEditTextDialog(text, onTextComplete):
     result = d.Show()
     gui.mainFrame.postPopup()
 
-# This function is a fixed version of fromNameEnglish function.
+# This function is a fixed version of fromName function.
 # As of v2020.3 it doesn't work correctly for gestures containing letters when the default locale on the computer is set to non-Latin, such as Russian.
 import vkCodes
 en_us_input_Hkl = 1033 + (1033 << 16)
@@ -654,6 +654,17 @@ def fromNameEnglish(name):
 
     return keyboardHandler.KeyboardInputGesture(keys[:-1], vk, 0, ext)
 
+def fromNameSmart(name):
+    try:
+        return keyboardHandler.KeyboardInputGesture.fromName(name)
+    except:
+        log.error(f"Couldn't resolve {name} keystroke using system default locale.", exc_info=True)
+    try:
+        return fromNameEnglish(name)
+    except:
+        log.error(f"Couldn't resolve {name} keystroke using English default locale.", exc_info=True)
+    return None
+
 originalTerminalGainFocus = None
 originalNVDAObjectFfocusEntered = None
 suppressTerminalTitleAnnouncement = False
@@ -667,25 +678,83 @@ def nvdaObjectFfocusEntered(self):
     if suppressTerminalTitleAnnouncement:
         return
     return originalNVDAObjectFfocusEntered(self)
-def executeAsynchronously(gen):
-    """
-    This function executes a generator-function in such a manner, that allows updates from the operating system to be processed during execution.
-    For an example of such generator function, please see GlobalPlugin.script_editJupyter.
-    Specifically, every time the generator function yilds a positive number,, the rest of the generator function will be executed
-    from within wx.CallLater() call.
-    If generator function yields a value of 0, then the rest of the generator function
-    will be executed from within wx.CallAfter() call.
-    This allows clear and simple expression of the logic inside the generator function, while still allowing NVDA to process update events from the operating system.
-    Essentially the generator function will be paused every time it calls yield, then the updates will be processed by NVDA and then the remainder of generator function will continue executing.
-    """
-    if not isinstance(gen, types.GeneratorType):
-        raise Exception("Generator function required")
-    try:
-        value = gen.__next__()
-    except StopIteration:
-        return
-    core.callLater(value, executeAsynchronously, gen)
+    
+def interruptAndSpeakMessage(message):
+    speech.cancelSpeech()
+    ui.message(message)
+    
+def verifyWindowUnderMousePointer(obj):
+    _windowFromPoint = ctypes.windll.user32.WindowFromPoint
+    p = winUser.getCursorPos()
+    hwnd=_windowFromPoint(ctypes.wintypes.POINT(p[0],p[1]))
+    pid,tid=winUser.getWindowThreadProcessID(hwnd)
+    if pid != obj.processID:
+        title=winUser.getWindowText(hwnd)
+        am=appModuleHandler.AppModule(pid)
+        api.q = {
+            'title': title,
+            'hwnd': hwnd,
+            'appModule': am,
+        }
+        volume = 50
+        Beeper().fancyBeep("HF", 100, volume, volume)
+        # Here is what I think we should do:
+        if False:
+            # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
+            HWND_BOTTOM = ctypes.wintypes.HWND(1)
+            winUser.user32.SetWindowPos(
+                api.q['hwnd'],
+                HWND_BOTTOM,
+                0, 0, 0, 0,
+                winUser.SWP_NOACTIVATE | winUser.SWP_NOMOVE | winUser.SWP_NOSIZE
+            )
+        raise Exception("Wrong window under mouse pointer. Relevant debug info has been saved to api.q.")
 
+def pastePuttyOld(obj):
+    # This approach doesn't appear to work, since apparently Putty triggers context menu on right click. Middle button doesn't appear to do anything either.
+    origX, origY = winUser.getCursorPos()
+    (left,top,width,height) = obj.location
+    x=left+(width//2)
+    y=top+(height//2)
+    winUser.setCursorPos(x,y)
+    mouseHandler.executeMouseEvent(winUser.MOUSEEVENTF_RIGHTDOWN,0,0)
+    mouseHandler.executeMouseEvent(winUser.MOUSEEVENTF_RIGHTUP,0,0)
+    core.callLater(100, interruptAndSpeakMessage, _("Pasted"))
+    core.callLater(300, winUser.setCursorPos, origX, origY)
+
+class ReleaseControlModifier:
+    # This approach can successfully release left controlin putty , but not right control.
+    AttachThreadInput = winUser.user32.AttachThreadInput
+    def __init__(self, obj):
+        self.obj = obj
+    def __enter__(self):
+        hwnd =  self.obj.windowHandle
+        processID,ThreadId = winUser.getWindowThreadProcessID(hwnd)
+        AttachThreadInput(ctypes.windll.kernel32.GetCurrentThreadId(), ThreadId, True)
+        PBYTE256 = ctypes.c_ubyte * 256
+        pKeyBuffers = PBYTE256()
+        SetKeyboardState = winUser.user32.SetKeyboardState
+        SetKeyboardState( ctypes.byref(pKeyBuffers) )
+        return self
+    def __exit__(self):
+        AttachThreadInput(ctypes.windll.kernel32.GetCurrentThreadId(), ThreadId, False)
+def pastePutty(obj):
+    for delay in waitUntilModifiersReleased():
+        api.processPendingEvents(False)
+    tones.beep(500, 50)
+    if False:
+        # This approach doesn't work when tmux is running inside Putty. Why!??
+        inputs = makeVkInput([winUser.VK_SHIFT, winUser.VK_INSERT])
+        with keyboardHandler.ignoreInjection():
+            winUser.SendInput(inputs)
+    fromNameSmart("Shift+Insert").send()
+
+def pasteConsole(obj):
+    # This sends WM_COMMAND message, with ID of Paste item of context menu of command prompt window.
+    # Don't ask me how I figured out its ID...
+    # https://stackoverflow.com/questions/34410697/how-to-capture-the-windows-message-that-is-sent-from-this-menu
+    WM_COMMAND = 0x0111
+    watchdog.cancellableSendMessage(obj.parent.windowHandle, WM_COMMAND, 0xfff1, 0)
 
 # Just some random unicode character that is not likely to appear anywhere.
 # This character is used for prompt editing automation
@@ -967,7 +1036,7 @@ def updatePrompt(result, text, keystroke, oldText, obj):
     with keyboardHandler.ignoreInjection():
         winUser.SendInput(inputs)
     if doCapture:
-        fromNameEnglish("Enter").send()
+        fromNameSmart("Enter").send()
         global captureStopFlag
         captureStopFlag = False
         executeAsynchronously(captureAsync(obj, rawCommand))
@@ -1188,47 +1257,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 class ConsoleControlV(NVDAObject):
     @script(description='Paste from clipboard', gestures=['kb:Control+V'])
     def script_paste(self, gesture):
-        # This sends WM_COMMAND message, with ID of Paste item of context menu of command prompt window.
-        # Don't ask me how I figured out its ID...
-        # https://stackoverflow.com/questions/34410697/how-to-capture-the-windows-message-that-is-sent-from-this-menu
-        WM_COMMAND = 0x0111
-        watchdog.cancellableSendMessage(self.parent.windowHandle, WM_COMMAND, 0xfff1, 0)
+        pasteConsole(self)
+
 
     #@script(description='Edit prompt', gestures=['kb:NVDA+E'])
     
     
-allModifiers = [
-    winUser.VK_LCONTROL, winUser.VK_RCONTROL,
-    winUser.VK_LSHIFT, winUser.VK_RSHIFT, winUser.VK_LMENU,
-    winUser.VK_RMENU, winUser.VK_LWIN, winUser.VK_RWIN,
-]
 class PuttyControlV(NVDAObject):
     @script(description='Paste from clipboard', gestures=['kb:Control+V'])
     def script_paste(self, gesture):
-        timestamp = time.time()
-        timeout = timestamp + 5
-        while True:
-            if time.time() > timeout:
-                raise Exception("Please release keyboard modifiers in a timely fashion!")
-            status = [
-                winUser.getKeyState(k) & 32768
-                for k in allModifiers
-            ]
-            if not any(status):
-                break
-            time.sleep(0.03)
-            api.processPendingEvents(processEventQueue=False)
-        clipboard = api.getClipData()
-        clipboard = clipboard.replace("\r\n", "\n").replace("\r", "\n")
-        inputs = []
-        for ch in clipboard:
-            for direction in (0,winUser.KEYEVENTF_KEYUP): 
-                input = winUser.Input()
-                input.type = winUser.INPUT_KEYBOARD
-                input.ii.ki = winUser.KeyBdInput()
-                input.ii.ki.wScan = ord(ch)
-                input.ii.ki.dwFlags = winUser.KEYEVENTF_UNICODE|direction
-                inputs.append(input)
-        with keyboardHandler.ignoreInjection():
-            winUser.SendInput(inputs)
-        core.callLater(100, ui.message, _("Pasted"))
+        pastePutty(self)

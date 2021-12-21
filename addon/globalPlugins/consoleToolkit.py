@@ -735,35 +735,27 @@ def pastePuttyOld(obj):
     core.callLater(300, winUser.setCursorPos, origX, origY)
 
 class ReleaseControlModifier:
-    # This approach can successfully release left controlin putty , but not right control.
     AttachThreadInput = winUser.user32.AttachThreadInput
     def __init__(self, obj):
         self.obj = obj
     def __enter__(self):
         hwnd =  self.obj.windowHandle
         processID,ThreadId = winUser.getWindowThreadProcessID(hwnd)
-        AttachThreadInput(ctypes.windll.kernel32.GetCurrentThreadId(), ThreadId, True)
+        self.ThreadId = ThreadId
+        self.AttachThreadInput(ctypes.windll.kernel32.GetCurrentThreadId(), ThreadId, True)
         PBYTE256 = ctypes.c_ubyte * 256
         pKeyBuffers = PBYTE256()
         SetKeyboardState = winUser.user32.SetKeyboardState
         SetKeyboardState( ctypes.byref(pKeyBuffers) )
         return self
-    def __exit__(self):
-        AttachThreadInput(ctypes.windll.kernel32.GetCurrentThreadId(), ThreadId, False)
+    def __exit__(self, *args, **kwargs):
+        self.AttachThreadInput(ctypes.windll.kernel32.GetCurrentThreadId(), self.ThreadId, False)
 
 
 def pastePutty(obj):
-    for delay in waitUntilModifiersReleased():
-        api.processPendingEvents(False)
     tones.beep(500, 50)
-    if False:
-        # This approach doesn't work when tmux is running inside Putty. Why!??
-        inputs = makeVkInput([winUser.VK_SHIFT, winUser.VK_INSERT])
-        with keyboardHandler.ignoreInjection():
-            winUser.SendInput(inputs)
-    fromNameSmart("Shift+Insert").send()
-
-
+    with ReleaseControlModifier(obj):
+        fromNameSmart("Shift+Insert").send()
 
 def pasteConsole(obj):
     # This sends WM_COMMAND message, with ID of Paste item of context menu of command prompt window.

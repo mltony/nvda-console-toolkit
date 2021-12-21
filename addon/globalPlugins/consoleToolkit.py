@@ -736,6 +736,9 @@ def pastePuttyOld(obj):
 
 class ReleaseControlModifier:
     AttachThreadInput = winUser.user32.AttachThreadInput
+    GetKeyboardState = winUser.user32.GetKeyboardState
+    SetKeyboardState = winUser.user32.SetKeyboardState
+    
     def __init__(self, obj):
         self.obj = obj
     def __enter__(self):
@@ -745,10 +748,15 @@ class ReleaseControlModifier:
         self.AttachThreadInput(ctypes.windll.kernel32.GetCurrentThreadId(), ThreadId, True)
         PBYTE256 = ctypes.c_ubyte * 256
         pKeyBuffers = PBYTE256()
-        SetKeyboardState = winUser.user32.SetKeyboardState
-        SetKeyboardState( ctypes.byref(pKeyBuffers) )
+        
+        pKeyBuffers_old = PBYTE256()
+        self.GetKeyboardState( ctypes.byref(pKeyBuffers_old ))
+        self.pKeyBuffers_old = pKeyBuffers_old
+        
+        self.SetKeyboardState( ctypes.byref(pKeyBuffers) )
         return self
     def __exit__(self, *args, **kwargs):
+        self.SetKeyboardState( ctypes.byref(self.pKeyBuffers_old) )
         self.AttachThreadInput(ctypes.windll.kernel32.GetCurrentThreadId(), self.ThreadId, False)
 
 
@@ -784,24 +792,35 @@ def getVkLetter(keyName):
     return vk
 def getVkCodes():
     d = {}
-    d['home'] = winUser.VK_HOME
-    d['end'] = winUser.VK_END
-    d['delete'] = winUser.VK_DELETE
-    d['backspace'] = winUser.VK_BACK
+    d['home'] = (winUser.VK_HOME, True)
+    d['end'] = (winUser.VK_END, True)
+    d['delete'] = (winUser.VK_DELETE, True)
+    d['backspace'] = (winUser.VK_BACK, False)
     return d
 
-def makeVkInput(vkCodes):
+KEYEVENTF_EXTENDEDKEY = 0x0001
+def makeVkInput(pairs):
     result = []
-    if not isinstance(vkCodes, list):
-        vkCodes = [vkCodes]
-    for vk in vkCodes:
+    if not isinstance(pairs, list):
+        pairs = [pairs]
+    for pair in pairs:
+        try:
+            vk, extended = pair
+        except TypeError:
+            vk = pair
+            extended = False
         input = winUser.Input(type=winUser.INPUT_KEYBOARD)
         input.ii.ki.wVk = vk
+        input.ii.ki.dwFlags = (KEYEVENTF_EXTENDEDKEY * extended)
         result.append(input)
-    for vk in reversed(vkCodes):
+    for pair in reversed(pairs):
+        try:
+            vk, extended = pair
+        except TypeError:
+            vk = pair
         input = winUser.Input(type=winUser.INPUT_KEYBOARD)
         input.ii.ki.wVk = vk
-        input.ii.ki.dwFlags = winUser.KEYEVENTF_KEYUP
+        input.ii.ki.dwFlags = (KEYEVENTF_EXTENDEDKEY * extended) | winUser.KEYEVENTF_KEYUP
         result.append(input)
     return result
 
@@ -1046,12 +1065,14 @@ def updatePrompt(result, text, keystroke, oldText, obj):
             inputs.extend(makeVkInput(winUser.VK_BACK))
     else:
         raise Exception(f"Unknown method {method}!")
-    # This way of sending input causes problems of letters changing positions occasionally.
-    #inputs.extend(makeUnicodeInput(text))
-    with keyboardHandler.ignoreInjection():
-        winUser.SendInput(inputs)
+    if isinstance(obj, PuttyControlV):
+        inputs.extend(makeVkInput([winUser.VK_SHIFT, (winUser.VK_INSERT, True)]))
     with BackupClipboard(text):
-        pasteTerminal(obj)
+        with keyboardHandler.ignoreInjection():
+            winUser.SendInput(inputs)
+        if isinstance(obj, ConsoleControlV):
+            pasteConsole(obj)
+
     if doCapture:
         fromNameSmart("Enter").send()
         global captureStopFlag

@@ -679,10 +679,22 @@ def nvdaObjectFfocusEntered(self):
         return
     return originalNVDAObjectFfocusEntered(self)
     
+class BackupClipboard:
+    def __init__(self, text):
+        self.backup = api.getClipData()
+        self.text = text
+    def __enter__(self):
+        api.copyToClip(self.text)
+        return self
+    def __exit__(self, *args, **kwargs):
+        core.callLater(300, self.restore)
+    def restore(self):
+        api.copyToClip(self.backup)
+
 def interruptAndSpeakMessage(message):
     speech.cancelSpeech()
     ui.message(message)
-    
+
 def verifyWindowUnderMousePointer(obj):
     _windowFromPoint = ctypes.windll.user32.WindowFromPoint
     p = winUser.getCursorPos()
@@ -738,6 +750,8 @@ class ReleaseControlModifier:
         return self
     def __exit__(self):
         AttachThreadInput(ctypes.windll.kernel32.GetCurrentThreadId(), ThreadId, False)
+
+
 def pastePutty(obj):
     for delay in waitUntilModifiersReleased():
         api.processPendingEvents(False)
@@ -749,6 +763,8 @@ def pastePutty(obj):
             winUser.SendInput(inputs)
     fromNameSmart("Shift+Insert").send()
 
+
+
 def pasteConsole(obj):
     # This sends WM_COMMAND message, with ID of Paste item of context menu of command prompt window.
     # Don't ask me how I figured out its ID...
@@ -756,6 +772,13 @@ def pasteConsole(obj):
     WM_COMMAND = 0x0111
     watchdog.cancellableSendMessage(obj.parent.windowHandle, WM_COMMAND, 0xfff1, 0)
 
+def pasteTerminal(obj):
+    if isinstance(obj, PuttyControlV):
+        pastePutty(obj)
+    elif isinstance(obj, ConsoleControlV):
+        pasteConsole(obj)
+    else:
+        raise Exception(f"Unknown object of type f={type(obj)}")
 # Just some random unicode character that is not likely to appear anywhere.
 # This character is used for prompt editing automation
 #controlCharacter = "➉" # U+2789, Dingbat circled sans-serif digit ten
@@ -836,7 +859,7 @@ def captureOutputAsync(self, gesture):
     with keyboardHandler.ignoreInjection():
         winUser.SendInput(inputs)
     captureStopFlag =False
-        
+
     executeAsynchronously(captureAsync(self, None))
 
 def extractCurrentPrompt(obj, promptResult):
@@ -1001,8 +1024,7 @@ deleteMethodNames = [
 ]
 
 def updatePrompt(result, text, keystroke, oldText, obj):
-    for delay in waitUntilModifiersReleased():
-        yield delay
+    yield from waitUntilModifiersReleased()
     doCapture = False
     rawCommand = text
     if result == wx.ID_OK:
@@ -1032,9 +1054,12 @@ def updatePrompt(result, text, keystroke, oldText, obj):
             inputs.extend(makeVkInput(winUser.VK_BACK))
     else:
         raise Exception(f"Unknown method {method}!")
-    inputs.extend(makeUnicodeInput(text))
+    # This way of sending input causes problems of letters changing positions occasionally.
+    #inputs.extend(makeUnicodeInput(text))
     with keyboardHandler.ignoreInjection():
         winUser.SendInput(inputs)
+    with BackupClipboard(text):
+        pasteTerminal(obj)
     if doCapture:
         fromNameSmart("Enter").send()
         global captureStopFlag
@@ -1190,7 +1215,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             clsList.insert(0, ConsoleControlV)
         if getConfig("controlVInConsole") and obj.windowClassName == 'PuTTY':
             clsList.insert(0, PuttyControlV)
-        
+
 
     def createMenu(self):
         gui.settingsDialogs.NVDASettingsDialog.categoryClasses.append(SettingsDialog)
@@ -1261,8 +1286,8 @@ class ConsoleControlV(NVDAObject):
 
 
     #@script(description='Edit prompt', gestures=['kb:NVDA+E'])
-    
-    
+
+
 class PuttyControlV(NVDAObject):
     @script(description='Paste from clipboard', gestures=['kb:Control+V'])
     def script_paste(self, gesture):

@@ -52,6 +52,8 @@ import watchdog
 import wave
 import winUser
 import wx
+import globalCommands
+import scriptHandler
 
 winmm = ctypes.windll.winmm
 
@@ -678,7 +680,37 @@ def nvdaObjectFfocusEntered(self):
     if suppressTerminalTitleAnnouncement:
         return
     return originalNVDAObjectFfocusEntered(self)
+
+originalReview_top = None
+def myReview_top(self, gesture: inputCore.InputGesture):
+    def speakInfo(info):
+        info.collapse()
+        if api.setReviewPosition(info):
+            info.expand(textInfos.UNIT_LINE)
+            speech.speakTextInfo(
+                info,
+                unit=textInfos.UNIT_LINE,
+                reason=controlTypes.OutputReason.CARET
+            )
+        else:
+            ui.message(_("Failed to set review positionreveiew "))
+
+    review=api.getReviewPosition()
+    obj = review.obj
+    from NVDAObjects.UIA.winConsoleUIA import WinTerminalUIA
+    count=scriptHandler.getLastScriptRepeatCount()
+    if count >= 1 or not isinstance(obj, WinTerminalUIA):
+        return originalReview_top(gesture)
+    while True:
+        old = review.copy()
+        review.collapse()
+        code = review.move(textInfos.UNIT_LINE, -1)
+        review.expand(textInfos.UNIT_LINE)
+        if code == 0 or len(review.boundingRects) == 0:
+            return speakInfo(old)
+        
     
+
 class BackupClipboard:
     def __init__(self, text):
         self.backup = api.getClipData()
@@ -1239,7 +1271,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         gui.settingsDialogs.NVDASettingsDialog.categoryClasses.remove(SettingsDialog)
 
     def injectHooks(self):
-        global originalReportNewText, originalCancelSpeech, originalTerminalGainFocus, originalNVDAObjectFfocusEntered
+        global originalReportNewText, originalCancelSpeech, originalTerminalGainFocus, originalNVDAObjectFfocusEntered, originalReview_top
         originalReportNewText = behaviors.LiveText._reportNewText
         behaviors.LiveText._reportNewText = newReportConsoleText
         originalCancelSpeech = speech.cancelSpeech
@@ -1260,6 +1292,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             behaviors.Terminal._Terminal__gestures = {}
         behaviors.Terminal._Terminal__gestures["kb:NVDA+E"] = "editPrompt"
         behaviors.Terminal._Terminal__gestures["kb:Control+Enter"] = "captureOutput"
+      # global commands review top
+        originalReview_top = globalCommands.commands.script_review_top
+        globalCommands.commands.script_review_top = myReview_top
+        globalCommands.commands._gestureMap['kb:numpad7+shift'] = globalCommands.commands.script_review_top
 
     def  removeHooks(self):
         behaviors.LiveText._reportNewText = originalReportNewText
@@ -1270,6 +1306,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         del behaviors.Terminal.script_captureOutput
         del behaviors.Terminal._Terminal__gestures["kb:NVDA+E"]
         del behaviors.Terminal._Terminal__gestures["kb:Control+Enter"]
+        globalCommands.commands.script_review_top = originalReview_top
+        globalCommands.commands._gestureMap['kb:numpad7+shift'] = globalCommands.commands.script_review_top
 
     def preCalculateNewText(self, selfself, *args, **kwargs):
         oldLines = args[1]

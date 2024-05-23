@@ -54,6 +54,7 @@ import winUser
 import wx
 import globalCommands
 import scriptHandler
+from NVDAObjects.UIA.winConsoleUIA import WinTerminalUIA
 
 winmm = ctypes.windll.winmm
 
@@ -93,6 +94,8 @@ def initConfiguration():
         "captureChimeVolume" : "integer( default=5, min=0, max=100)",
         "captureOpenOption" : "integer( default=0, min=0, max=3)",
         "captureTimeout" : "integer( default=60, min=0, max=1000000)",
+        "overrideTopReview" : "boolean( default=True)",
+        "overrideRepeatedReview" : "boolean( default=True)",
     }
     config.conf.spec[module] = confspec
 
@@ -158,6 +161,14 @@ class SettingsDialog(SettingsPanel):
         sizer.Add(slider)
         settingsSizer.Add(sizer)
         self.captureChimeVolumeSlider = slider
+      # checkbox override review top line behavior
+        label = _("Override shift+numPad7 behavior to take review cursor to the first visible line")
+        self.overrideTopReviewCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
+        self.overrideTopReviewCheckbox.Value = getConfig("overrideTopReview")
+      # checkbox override repeated review curosr events
+        label = _("Ignore repeated route review cursor events")
+        self.overrideRepeatedReviewCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
+        self.overrideRepeatedReviewCheckbox.Value = getConfig("overrideRepeatedReview")
 
     def onSave(self):
         try:
@@ -175,6 +186,8 @@ class SettingsDialog(SettingsPanel):
         setConfig("captureOpenOption", self.captureOpenOptionCombobox.Selection)
         setConfig("captureTimeout", int(self.captureTimeoutEdit.Value))
         setConfig("captureChimeVolume", self.captureChimeVolumeSlider.Value)
+        setConfig("overrideTopReview", self.overrideTopReviewCheckbox.Value)
+        setConfig("overrideRepeatedReview", self.overrideRepeatedReviewCheckbox.Value)
 
 class Memoize:
     def __init__(self, f):
@@ -683,6 +696,12 @@ def nvdaObjectFfocusEntered(self):
 
 originalReview_top = None
 def myReview_top(self, gesture: inputCore.InputGesture):
+    review=api.getReviewPosition()
+    obj = review.obj
+    count=scriptHandler.getLastScriptRepeatCount()
+    if not getConfig("overrideTopReview") or count >= 1 or not isinstance(obj, WinTerminalUIA):
+        return originalReview_top(gesture)
+
     def speakInfo(info):
         info.collapse()
         if api.setReviewPosition(info):
@@ -695,12 +714,6 @@ def myReview_top(self, gesture: inputCore.InputGesture):
         else:
             ui.message(_("Failed to set review positionreveiew "))
 
-    review=api.getReviewPosition()
-    obj = review.obj
-    from NVDAObjects.UIA.winConsoleUIA import WinTerminalUIA
-    count=scriptHandler.getLastScriptRepeatCount()
-    if count >= 1 or not isinstance(obj, WinTerminalUIA):
-        return originalReview_top(gesture)
     while True:
         old = review.copy()
         review.collapse()
@@ -708,8 +721,6 @@ def myReview_top(self, gesture: inputCore.InputGesture):
         review.expand(textInfos.UNIT_LINE)
         if code == 0 or len(review.boundingRects) == 0:
             return speakInfo(old)
-        
-    
 
 class BackupClipboard:
     def __init__(self, text):
@@ -1243,6 +1254,30 @@ def presentCaptureResult(lines):
             os.system(f"""notepad++ "{tf.name}" """)
     else:
         raise Exception(f"Unknown option {option}")
+
+originalHandleCaretMove = None
+lastObj = None
+lastInfo = None
+def newHandleCaretMove(pos):
+    global lastObj, lastInfo
+    if getConfig("overrideRepeatedReview") and config.conf['reviewCursor']['followCaret']:
+        if not isinstance(pos,textInfos.TextInfo):
+            obj=pos
+            if isinstance(obj,NVDAObjects.NVDAObject):
+                if obj.windowClassName in  ['ConsoleWindowClass', 'Windows.UI.Input.InputSite.WindowClass']:
+                    try:
+                        info=obj.makeTextInfo(textInfos.POSITION_CARET)
+                    except (NotImplementedError,RuntimeError):
+                        info = None
+                    
+                    if obj == lastObj:
+                        if info==lastInfo:
+                            # Skip this!
+                            return
+                    lastObj = obj
+                    lastInfo = info
+                    
+    return originalHandleCaretMove(pos)
 
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):

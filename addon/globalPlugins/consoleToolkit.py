@@ -1291,10 +1291,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         self.beeper = Beeper()
 
     def chooseNVDAObjectOverlayClasses(self, obj, clsList):
-        if getConfig("controlVInConsole") and obj.windowClassName == 'ConsoleWindowClass':
-            clsList.insert(0, ConsoleControlV)
-        if getConfig("controlVInConsole") and obj.windowClassName == 'PuTTY':
-            clsList.insert(0, PuttyControlV)
+        if getConfig("controlVInConsole"):
+            window_class_name = getattr(obj, 'windowClassName', None)
+            if window_class_name == 'ConsoleWindowClass':
+                clsList.insert(0, ConsoleControlV)
+            elif window_class_name == 'PuTTY':
+                clsList.insert(0, PuttyControlV)
 
 
     def createMenu(self):

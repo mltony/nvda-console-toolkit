@@ -54,7 +54,8 @@ import winUser
 import wx
 import globalCommands
 import scriptHandler
-from NVDAObjects.UIA.winConsoleUIA import WinTerminalUIA
+from UIAHandler.utils import _shouldUseWindowsTerminalNotifications
+from NVDAObjects.UIA.winConsoleUIA import _DiffBasedWinTerminalUIA, _NotificationsBasedWinTerminalUIA
 
 winmm = ctypes.windll.winmm
 
@@ -699,7 +700,7 @@ def myReview_top(self, gesture: inputCore.InputGesture):
     review=api.getReviewPosition()
     obj = review.obj
     count=scriptHandler.getLastScriptRepeatCount()
-    if not getConfig("overrideTopReview") or count >= 1 or not isinstance(obj, WinTerminalUIA):
+    if not getConfig("overrideTopReview") or count >= 1 or not isinstance(obj, (_NotificationsBasedWinTerminalUIA if _shouldUseWindowsTerminalNotifications() else _DiffBasedWinTerminalUIA)):
         return originalReview_top(gesture)
 
     def speakInfo(info):

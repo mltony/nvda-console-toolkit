@@ -58,7 +58,7 @@ from UIAHandler.utils import _shouldUseWindowsTerminalNotifications
 from NVDAObjects.UIA.winConsoleUIA import _DiffBasedWinTerminalUIA, _NotificationsBasedWinTerminalUIA
 
 winmm = ctypes.windll.winmm
-
+TERMINAL_WINDOW_CLASS = 'Windows.UI.Input.InputSite.WindowClass'
 
 debug = False
 if debug:
@@ -805,7 +805,6 @@ class ReleaseControlModifier:
 
 
 def pastePutty(obj):
-    tones.beep(500, 50)
     with ReleaseControlModifier(obj):
         fromNameSmart("Shift+Insert").send()
 
@@ -832,8 +831,18 @@ controlCharacter = "⌂" # character code 127
 
 def getVkLetter(keyName):
     en_us_input_Hkl = 1033 + (1033 << 16)
-    requiredMods, vk = winUser.VkKeyScanEx(keyName, en_us_input_Hkl)
-    return vk
+    try:
+        requiredMods, vk = winUser.VkKeyScanEx(keyName, en_us_input_Hkl)
+        return vk
+    except LookupError:
+        # This might fail if there is no English keyboard layout
+        knownVks  = {
+            'V': 86,
+            'A': 65,
+            'C': 67,
+            'K': 75,
+        }
+        return knownVks[keyName.upper()]
 def getVkCodes():
     d = {}
     d['home'] = (winUser.VK_HOME, True)
@@ -1078,6 +1087,14 @@ deleteMethodNames = [
     _("Backspace (recommended): works in all environments; however slower and may cause corruption if the length of the line has changed"),
 ]
 
+def getControlVGesture():
+    try:
+        return keyboardHandler.KeyboardInputGesture.fromName("Control+v")
+    except LookupError:
+        # This happens if vk code for letter V fails to resolve, when current keyboard layout is for example Russian
+        # vk code for V key is 86
+        return keyboardHandler.KeyboardInputGesture(modifiers={(winUser.VK_CONTROL, False)}, vkCode=86, scanCode=0, isExtended=False)
+
 def updatePrompt(result, text, keystroke, oldText, obj):
     yield from waitUntilModifiersReleased()
     doCapture = False
@@ -1109,13 +1126,22 @@ def updatePrompt(result, text, keystroke, oldText, obj):
             inputs.extend(makeVkInput(winUser.VK_BACK))
     else:
         raise Exception(f"Unknown method {method}!")
+    isWindowsTerminal = getattr(obj, 'windowClassName', None) == TERMINAL_WINDOW_CLASS
     if isinstance(obj, PuttyControlV):
         inputs.extend(makeVkInput([winUser.VK_SHIFT, (winUser.VK_INSERT, True)]))
+    elif isWindowsTerminal:
+        inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("V")]))
     with BackupClipboard(text):
         with keyboardHandler.ignoreInjection():
             winUser.SendInput(inputs)
         if isinstance(obj, ConsoleControlV):
             pasteConsole(obj)
+        elif isinstance(obj, PuttyControlV):
+            pass
+        elif isWindowsTerminal:
+            pass
+        else:
+            raise RuntimeError("Unknown terminal type!")
 
     if doCapture:
         fromNameSmart("Enter").send()

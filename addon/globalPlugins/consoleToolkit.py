@@ -208,7 +208,8 @@ class Beeper:
     BEEP_LEN = 10 # millis
     PAUSE_LEN = 5 # millis
     MAX_CRACKLE_LEN = 400 # millis
-    MAX_BEEP_COUNT = MAX_CRACKLE_LEN // (BEEP_LEN + PAUSE_LEN)
+    #MAX_BEEP_COUNT = MAX_CRACKLE_LEN // (BEEP_LEN + PAUSE_LEN)
+    MAX_BEEP_COUNT = 40 # Corresponds to about 500 paragraphs with the log formula
 
     def __init__(self):
         self.player = nvwave.WavePlayer(
@@ -218,36 +219,42 @@ class Beeper:
             outputDevice=config.conf["speech"]["outputDevice"],
             wantDucking=False
         )
-        self.stopSignal = False
 
 
 
-    def fancyCrackle(self, levels, volume):
-        levels = self.uniformSample(levels, self.MAX_BEEP_COUNT )
+    def fancyCrackle(self, levels, volume, initialDelay=0):
+        l = len(levels)
+        coef = 10
+        l = coef * math.log(
+            1 + l/coef
+        )
+        l = int(round(l))
+        levels = self.uniformSample(levels, min(l, self.MAX_BEEP_COUNT ))
         beepLen = self.BEEP_LEN
         pauseLen = self.PAUSE_LEN
+        initialDelaySize = 0 if initialDelay == 0 else NVDAHelper.generateBeep(None,self.BASE_FREQ,initialDelay,0, 0)
         pauseBufSize = NVDAHelper.generateBeep(None,self.BASE_FREQ,pauseLen,0, 0)
         beepBufSizes = [NVDAHelper.generateBeep(None,self.getPitch(l), beepLen, volume, volume) for l in levels]
-        bufSize = sum(beepBufSizes) + len(levels) * pauseBufSize
+        bufSize = initialDelaySize + sum(beepBufSizes) + len(levels) * pauseBufSize
         buf = ctypes.create_string_buffer(bufSize)
         bufPtr = 0
+        bufPtr += initialDelaySize
         for l in levels:
             bufPtr += NVDAHelper.generateBeep(
                 ctypes.cast(ctypes.byref(buf, bufPtr), ctypes.POINTER(ctypes.c_char)),
                 self.getPitch(l), beepLen, volume, volume)
             bufPtr += pauseBufSize # add a short pause
         self.player.stop()
-        self.player.feed(buf.raw)
+        threading.Thread(target=lambda:self.player.feed(buf.raw)).start()
 
-    def simpleCrackle(self, n, volume):
-        return self.fancyCrackle([0] * n, volume)
+    def simpleCrackle(self, n, volume, initialDelay=0):
+        return self.fancyCrackle([0] * n, volume, initialDelay=initialDelay)
 
 
     NOTES = "A,B,H,C,C#,D,D#,E,F,F#,G,G#".split(",")
     NOTE_RE = re.compile("[A-H][#]?")
     BASE_FREQ = 220
     def getChordFrequencies(self, chord):
-        myAssert(len(self.NOTES) == 12)
         prev = -1
         result = []
         for m in self.NOTE_RE.finditer(chord):
@@ -259,8 +266,7 @@ class Beeper:
             prev = i
         return result
 
-    @Memoize
-    def prepareFancyBeep(self, chord, length, left=10, right=10):
+    def fancyBeep(self, chord, length, left=10, right=10):
         beepLen = length
         freqs = self.getChordFrequencies(chord)
         intSize = 8 # bytes
@@ -268,6 +274,7 @@ class Beeper:
         if bufSize % intSize != 0:
             bufSize += intSize
             bufSize -= (bufSize % intSize)
+        self.player.stop()
         bbs = []
         result = [0] * (bufSize//intSize)
         for freq in freqs:
@@ -279,24 +286,7 @@ class Beeper:
         maxInt = 1 << (8 * intSize)
         result = map(lambda x : x %maxInt, result)
         packed = struct.pack("<%dQ" % (bufSize // intSize), *result)
-        return packed
-
-    def fancyBeep(self, chord, length, left=10, right=10, repetitions=1 ):
-        self.player.stop()
-        buffer = self.prepareFancyBeep(self, chord, length, left, right)
-        self.player.feed(buffer)
-        repetitions -= 1
-        if repetitions > 0:
-            self.stopSignal = False
-            # This is a crappy implementation of multithreading. It'll deadlock if you poke it.
-            # Don't use for anything serious.
-            def threadFunc(repetitions):
-                for i in range(repetitions):
-                    if self.stopSignal:
-                        return
-                    self.player.feed(buffer)
-            t = threading.Thread(target=threadFunc, args=(repetitions,))
-            t.start()
+        threading.Thread(target=lambda:self.player.feed(packed)).start()
 
     def uniformSample(self, a, m):
         n = len(a)
@@ -308,8 +298,8 @@ class Beeper:
             result.append(a[i  // m])
         return result
     def stop(self):
-        self.stopSignal = True
         self.player.stop()
+
 
 
 def executeAsynchronously(gen):
@@ -815,13 +805,6 @@ def pasteConsole(obj):
     WM_COMMAND = 0x0111
     watchdog.cancellableSendMessage(obj.parent.windowHandle, WM_COMMAND, 0xfff1, 0)
 
-def pasteTerminal(obj):
-    if isinstance(obj, PuttyControlV):
-        pastePutty(obj)
-    elif isinstance(obj, ConsoleControlV):
-        pasteConsole(obj)
-    else:
-        raise Exception(f"Unknown object of type f={type(obj)}")
 # Just some random unicode character that is not likely to appear anywhere.
 # This character is used for prompt editing automation
 #controlCharacter = "➉" # U+2789, Dingbat circled sans-serif digit ten
@@ -1195,7 +1178,7 @@ def captureAsync(obj, rawCommand):
         result.append(f"$ {rawCommand}")
     previousLines = []
     previousLinesCounter = 0
-    captureBeeper.fancyBeep("CDGA", length=5000, left=5, right=5, repetitions =int(math.ceil(timeoutSeconds / 5)) )
+    captureBeeper.fancyBeep("CDGA", length=5000 * int(math.ceil(timeoutSeconds / 5)) , left=5, right=5)
     try:
         while time.time() < timeout:
             t = time.time() - start

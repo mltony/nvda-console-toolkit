@@ -713,17 +713,27 @@ def myReview_top(self, gesture: inputCore.InputGesture):
         if code == 0 or len(review.boundingRects) == 0:
             return speakInfo(old)
 
+def ephemeralCopyToClip(text: str):
+    """
+    Copies string to clipboard without leaving an entry in clipboard history.
+    """
+    with winUser.openClipboard(gui.mainFrame.Handle):
+        winUser.emptyClipboard()
+        winUser.setClipboardData(winUser.CF_UNICODETEXT, text)
+        ephemeralFormat = ctypes.windll.user32.RegisterClipboardFormatW("ExcludeClipboardContentFromMonitorProcessing")
+        ctypes.windll.user32.SetClipboardData(ephemeralFormat,None)
+
 class BackupClipboard:
     def __init__(self, text):
         self.backup = api.getClipData()
         self.text = text
     def __enter__(self):
-        api.copyToClip(self.text)
+        ephemeralCopyToClip(self.text)
         return self
     def __exit__(self, *args, **kwargs):
         core.callLater(300, self.restore)
     def restore(self):
-        api.copyToClip(self.backup)
+        ephemeralCopyToClip(self.backup)
 
 def interruptAndSpeakMessage(message):
     speech.cancelSpeech()

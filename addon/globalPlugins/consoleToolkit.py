@@ -822,6 +822,7 @@ def getVkLetter(keyName):
         knownVks  = {
             'V': 86,
             'A': 65,
+            'B': 66,
             'C': 67,
             'K': 75,
         }
@@ -1305,8 +1306,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             window_class_name = getattr(obj, 'windowClassName', None)
             if window_class_name == 'ConsoleWindowClass':
                 clsList.insert(0, ConsoleControlV)
+                clsList.insert(1, TmuxWindowSwitcher)
             elif window_class_name == 'PuTTY':
                 clsList.insert(0, PuttyControlV)
+                clsList.insert(1, TmuxWindowSwitcher)
+            elif window_class_name == TERMINAL_WINDOW_CLASS:
+                clsList.insert(0, TmuxWindowSwitcher)
 
 
     def createMenu(self):
@@ -1390,3 +1395,13 @@ class PuttyControlV(NVDAObject):
     @script(description='Paste from clipboard', gestures=['kb:Control+V'])
     def script_paste(self, gesture):
         pastePutty(self)
+
+class TmuxWindowSwitcher(NVDAObject):
+    @script(description='Switch to tmux window', gestures=[f'kb:Control+{i}' for i in range(10)])
+    def script_switchToTmuxWindow(self, gesture):
+        inputs = []
+        inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("B")]))
+        inputs.extend(makeVkInput([getVkLetter(gesture.mainKeyName)]))
+        with keyboardHandler.ignoreInjection():
+            winUser.SendInput(inputs)
+        tones.beep(100, 20, 20, 20)

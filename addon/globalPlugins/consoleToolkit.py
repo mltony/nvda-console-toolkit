@@ -54,10 +54,11 @@ import winUser
 import wx
 import globalCommands
 import scriptHandler
-from NVDAObjects.UIA.winConsoleUIA import WinTerminalUIA
+from UIAHandler.utils import _shouldUseWindowsTerminalNotifications
+from NVDAObjects.UIA.winConsoleUIA import _DiffBasedWinTerminalUIA, _NotificationsBasedWinTerminalUIA
 
 winmm = ctypes.windll.winmm
-
+TERMINAL_WINDOW_CLASS = 'Windows.UI.Input.InputSite.WindowClass'
 
 debug = False
 if debug:
@@ -207,7 +208,8 @@ class Beeper:
     BEEP_LEN = 10 # millis
     PAUSE_LEN = 5 # millis
     MAX_CRACKLE_LEN = 400 # millis
-    MAX_BEEP_COUNT = MAX_CRACKLE_LEN // (BEEP_LEN + PAUSE_LEN)
+    #MAX_BEEP_COUNT = MAX_CRACKLE_LEN // (BEEP_LEN + PAUSE_LEN)
+    MAX_BEEP_COUNT = 40 # Corresponds to about 500 paragraphs with the log formula
 
     def __init__(self):
         self.player = nvwave.WavePlayer(
@@ -217,36 +219,42 @@ class Beeper:
             outputDevice=config.conf["speech"]["outputDevice"],
             wantDucking=False
         )
-        self.stopSignal = False
 
 
 
-    def fancyCrackle(self, levels, volume):
-        levels = self.uniformSample(levels, self.MAX_BEEP_COUNT )
+    def fancyCrackle(self, levels, volume, initialDelay=0):
+        l = len(levels)
+        coef = 10
+        l = coef * math.log(
+            1 + l/coef
+        )
+        l = int(round(l))
+        levels = self.uniformSample(levels, min(l, self.MAX_BEEP_COUNT ))
         beepLen = self.BEEP_LEN
         pauseLen = self.PAUSE_LEN
+        initialDelaySize = 0 if initialDelay == 0 else NVDAHelper.generateBeep(None,self.BASE_FREQ,initialDelay,0, 0)
         pauseBufSize = NVDAHelper.generateBeep(None,self.BASE_FREQ,pauseLen,0, 0)
         beepBufSizes = [NVDAHelper.generateBeep(None,self.getPitch(l), beepLen, volume, volume) for l in levels]
-        bufSize = sum(beepBufSizes) + len(levels) * pauseBufSize
+        bufSize = initialDelaySize + sum(beepBufSizes) + len(levels) * pauseBufSize
         buf = ctypes.create_string_buffer(bufSize)
         bufPtr = 0
+        bufPtr += initialDelaySize
         for l in levels:
             bufPtr += NVDAHelper.generateBeep(
                 ctypes.cast(ctypes.byref(buf, bufPtr), ctypes.POINTER(ctypes.c_char)),
                 self.getPitch(l), beepLen, volume, volume)
             bufPtr += pauseBufSize # add a short pause
         self.player.stop()
-        self.player.feed(buf.raw)
+        threading.Thread(target=lambda:self.player.feed(buf.raw)).start()
 
-    def simpleCrackle(self, n, volume):
-        return self.fancyCrackle([0] * n, volume)
+    def simpleCrackle(self, n, volume, initialDelay=0):
+        return self.fancyCrackle([0] * n, volume, initialDelay=initialDelay)
 
 
     NOTES = "A,B,H,C,C#,D,D#,E,F,F#,G,G#".split(",")
     NOTE_RE = re.compile("[A-H][#]?")
     BASE_FREQ = 220
     def getChordFrequencies(self, chord):
-        myAssert(len(self.NOTES) == 12)
         prev = -1
         result = []
         for m in self.NOTE_RE.finditer(chord):
@@ -258,8 +266,7 @@ class Beeper:
             prev = i
         return result
 
-    @Memoize
-    def prepareFancyBeep(self, chord, length, left=10, right=10):
+    def fancyBeep(self, chord, length, left=10, right=10):
         beepLen = length
         freqs = self.getChordFrequencies(chord)
         intSize = 8 # bytes
@@ -267,6 +274,7 @@ class Beeper:
         if bufSize % intSize != 0:
             bufSize += intSize
             bufSize -= (bufSize % intSize)
+        self.player.stop()
         bbs = []
         result = [0] * (bufSize//intSize)
         for freq in freqs:
@@ -278,24 +286,7 @@ class Beeper:
         maxInt = 1 << (8 * intSize)
         result = map(lambda x : x %maxInt, result)
         packed = struct.pack("<%dQ" % (bufSize // intSize), *result)
-        return packed
-
-    def fancyBeep(self, chord, length, left=10, right=10, repetitions=1 ):
-        self.player.stop()
-        buffer = self.prepareFancyBeep(self, chord, length, left, right)
-        self.player.feed(buffer)
-        repetitions -= 1
-        if repetitions > 0:
-            self.stopSignal = False
-            # This is a crappy implementation of multithreading. It'll deadlock if you poke it.
-            # Don't use for anything serious.
-            def threadFunc(repetitions):
-                for i in range(repetitions):
-                    if self.stopSignal:
-                        return
-                    self.player.feed(buffer)
-            t = threading.Thread(target=threadFunc, args=(repetitions,))
-            t.start()
+        threading.Thread(target=lambda:self.player.feed(packed)).start()
 
     def uniformSample(self, a, m):
         n = len(a)
@@ -307,8 +298,8 @@ class Beeper:
             result.append(a[i  // m])
         return result
     def stop(self):
-        self.stopSignal = True
         self.player.stop()
+
 
 
 def executeAsynchronously(gen):
@@ -699,7 +690,7 @@ def myReview_top(self, gesture: inputCore.InputGesture):
     review=api.getReviewPosition()
     obj = review.obj
     count=scriptHandler.getLastScriptRepeatCount()
-    if not getConfig("overrideTopReview") or count >= 1 or not isinstance(obj, WinTerminalUIA):
+    if not getConfig("overrideTopReview") or count >= 1 or not isinstance(obj, (_NotificationsBasedWinTerminalUIA if _shouldUseWindowsTerminalNotifications() else _DiffBasedWinTerminalUIA)):
         return originalReview_top(gesture)
 
     def speakInfo(info):
@@ -722,17 +713,27 @@ def myReview_top(self, gesture: inputCore.InputGesture):
         if code == 0 or len(review.boundingRects) == 0:
             return speakInfo(old)
 
+def ephemeralCopyToClip(text: str):
+    """
+    Copies string to clipboard without leaving an entry in clipboard history.
+    """
+    with winUser.openClipboard(gui.mainFrame.Handle):
+        winUser.emptyClipboard()
+        winUser.setClipboardData(winUser.CF_UNICODETEXT, text)
+        ephemeralFormat = ctypes.windll.user32.RegisterClipboardFormatW("ExcludeClipboardContentFromMonitorProcessing")
+        ctypes.windll.user32.SetClipboardData(ephemeralFormat,None)
+
 class BackupClipboard:
     def __init__(self, text):
         self.backup = api.getClipData()
         self.text = text
     def __enter__(self):
-        api.copyToClip(self.text)
+        ephemeralCopyToClip(self.text)
         return self
     def __exit__(self, *args, **kwargs):
         core.callLater(300, self.restore)
     def restore(self):
-        api.copyToClip(self.backup)
+        ephemeralCopyToClip(self.backup)
 
 def interruptAndSpeakMessage(message):
     speech.cancelSpeech()
@@ -804,7 +805,6 @@ class ReleaseControlModifier:
 
 
 def pastePutty(obj):
-    tones.beep(500, 50)
     with ReleaseControlModifier(obj):
         fromNameSmart("Shift+Insert").send()
 
@@ -815,13 +815,6 @@ def pasteConsole(obj):
     WM_COMMAND = 0x0111
     watchdog.cancellableSendMessage(obj.parent.windowHandle, WM_COMMAND, 0xfff1, 0)
 
-def pasteTerminal(obj):
-    if isinstance(obj, PuttyControlV):
-        pastePutty(obj)
-    elif isinstance(obj, ConsoleControlV):
-        pasteConsole(obj)
-    else:
-        raise Exception(f"Unknown object of type f={type(obj)}")
 # Just some random unicode character that is not likely to appear anywhere.
 # This character is used for prompt editing automation
 #controlCharacter = "➉" # U+2789, Dingbat circled sans-serif digit ten
@@ -831,8 +824,19 @@ controlCharacter = "⌂" # character code 127
 
 def getVkLetter(keyName):
     en_us_input_Hkl = 1033 + (1033 << 16)
-    requiredMods, vk = winUser.VkKeyScanEx(keyName, en_us_input_Hkl)
-    return vk
+    try:
+        requiredMods, vk = winUser.VkKeyScanEx(keyName, en_us_input_Hkl)
+        return vk
+    except LookupError:
+        # This might fail if there is no English keyboard layout
+        knownVks  = {
+            'V': 86,
+            'A': 65,
+            'B': 66,
+            'C': 67,
+            'K': 75,
+        }
+        return knownVks[keyName.upper()]
 def getVkCodes():
     d = {}
     d['home'] = (winUser.VK_HOME, True)
@@ -1077,6 +1081,14 @@ deleteMethodNames = [
     _("Backspace (recommended): works in all environments; however slower and may cause corruption if the length of the line has changed"),
 ]
 
+def getControlVGesture():
+    try:
+        return keyboardHandler.KeyboardInputGesture.fromName("Control+v")
+    except LookupError:
+        # This happens if vk code for letter V fails to resolve, when current keyboard layout is for example Russian
+        # vk code for V key is 86
+        return keyboardHandler.KeyboardInputGesture(modifiers={(winUser.VK_CONTROL, False)}, vkCode=86, scanCode=0, isExtended=False)
+
 def updatePrompt(result, text, keystroke, oldText, obj):
     yield from waitUntilModifiersReleased()
     doCapture = False
@@ -1108,13 +1120,22 @@ def updatePrompt(result, text, keystroke, oldText, obj):
             inputs.extend(makeVkInput(winUser.VK_BACK))
     else:
         raise Exception(f"Unknown method {method}!")
+    isWindowsTerminal = getattr(obj, 'windowClassName', None) == TERMINAL_WINDOW_CLASS
     if isinstance(obj, PuttyControlV):
         inputs.extend(makeVkInput([winUser.VK_SHIFT, (winUser.VK_INSERT, True)]))
+    elif isWindowsTerminal:
+        inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("V")]))
     with BackupClipboard(text):
         with keyboardHandler.ignoreInjection():
             winUser.SendInput(inputs)
         if isinstance(obj, ConsoleControlV):
             pasteConsole(obj)
+        elif isinstance(obj, PuttyControlV):
+            pass
+        elif isWindowsTerminal:
+            pass
+        else:
+            raise RuntimeError("Unknown terminal type!")
 
     if doCapture:
         fromNameSmart("Enter").send()
@@ -1168,7 +1189,7 @@ def captureAsync(obj, rawCommand):
         result.append(f"$ {rawCommand}")
     previousLines = []
     previousLinesCounter = 0
-    captureBeeper.fancyBeep("CDGA", length=5000, left=5, right=5, repetitions =int(math.ceil(timeoutSeconds / 5)) )
+    captureBeeper.fancyBeep("CDGA", length=5000 * int(math.ceil(timeoutSeconds / 5)) , left=5, right=5)
     try:
         while time.time() < timeout:
             t = time.time() - start
@@ -1291,10 +1312,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         self.beeper = Beeper()
 
     def chooseNVDAObjectOverlayClasses(self, obj, clsList):
-        if getConfig("controlVInConsole") and obj.windowClassName == 'ConsoleWindowClass':
-            clsList.insert(0, ConsoleControlV)
-        if getConfig("controlVInConsole") and obj.windowClassName == 'PuTTY':
-            clsList.insert(0, PuttyControlV)
+        if getConfig("controlVInConsole"):
+            window_class_name = getattr(obj, 'windowClassName', None)
+            if window_class_name == 'ConsoleWindowClass':
+                clsList.insert(0, ConsoleControlV)
+                clsList.insert(1, TmuxWindowSwitcher)
+            elif window_class_name == 'PuTTY':
+                clsList.insert(0, PuttyControlV)
+                clsList.insert(1, TmuxWindowSwitcher)
+            elif window_class_name == TERMINAL_WINDOW_CLASS:
+                clsList.insert(0, TmuxWindowSwitcher)
 
 
     def createMenu(self):
@@ -1378,3 +1405,13 @@ class PuttyControlV(NVDAObject):
     @script(description='Paste from clipboard', gestures=['kb:Control+V'])
     def script_paste(self, gesture):
         pastePutty(self)
+
+class TmuxWindowSwitcher(NVDAObject):
+    @script(description='Switch to tmux window', gestures=[f'kb:Control+{i}' for i in range(10)])
+    def script_switchToTmuxWindow(self, gesture):
+        inputs = []
+        inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("B")]))
+        inputs.extend(makeVkInput([getVkLetter(gesture.mainKeyName)]))
+        with keyboardHandler.ignoreInjection():
+            winUser.SendInput(inputs)
+        tones.beep(100, 20, 20, 20)

@@ -1336,8 +1336,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         global originalReportNewText, originalCancelSpeech, originalTerminalGainFocus, originalNVDAObjectFfocusEntered, originalReview_top
         originalReportNewText = behaviors.LiveText._reportNewText
         behaviors.LiveText._reportNewText = newReportConsoleText
-        originalCancelSpeech = speech.cancelSpeech
-        speech.cancelSpeech = newCancelSpeech
+        originalCancelSpeech = speech.speech.cancelSpeech
+        speech.speech.cancelSpeech = newCancelSpeech
+        speech.cancelSpeech = speech.speech.cancelSpeech
         # Apparently we need to monkey patch in two places to avoid terminal title being spoken when we switch to it from edit prompt window.
         # behaviors.Terminal.event_gainFocus is needed for both legacy and UIA implementation,
         # but in legacy it speaks window title, while in UIA mode it speaks current line in the terminal
@@ -1361,7 +1362,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
     def  removeHooks(self):
         behaviors.LiveText._reportNewText = originalReportNewText
-        speech.cancelSpeech = originalCancelSpeech
+        speech.speech.cancelSpeech = originalCancelSpeech
+        speech.cancelSpeech = speech.speech.cancelSpeech
         behaviors.Terminal.event_gainFocus = originalTerminalGainFocus
         NVDAObject.event_focusEntered = originalNVDAObjectFfocusEntered
         del behaviors.Terminal.script_editPrompt

@@ -1,0 +1,168 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: console-toolkit\n"
+"POT-Creation-Date: 2024-05-21 10:34+0300\n"
+"PO-Revision-Date: 2025-02-24 21:00+0800\n"
+"Last-Translator: Alan <alanzhangmw@outlook.com>\n"
+"Language-Team: nvdacn.com\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.5\n"
+"X-Poedit-Basepath: ../../../..\n"
+"X-Poedit-SearchPath-0: addon/globalPlugins/consoleToolkit.py\n"
+"X-Poedit-SearchPath-1: buildVars.py\n"
+
+#: addon/globalPlugins/consoleToolkit.py:112
+msgid "Console Toolkit settings"
+msgstr "控制台工具包设置"
+
+#: addon/globalPlugins/consoleToolkit.py:120
+msgid "Speak console output in realtime"
+msgstr "实时朗读控制台输出"
+
+#: addon/globalPlugins/consoleToolkit.py:125
+msgid "Beep on update in consoles"
+msgstr "控制台更新时发出蜂鸣声"
+
+#: addon/globalPlugins/consoleToolkit.py:130
+msgid "Always enable Control+V in console (useful for SSH)"
+msgstr "始终在控制台中启用Control+V（对SSH有用）"
+
+#: addon/globalPlugins/consoleToolkit.py:136
+msgid "Method of deleting lines for prompt editing:"
+msgstr "删除行的方法以提示编辑："
+
+#: addon/globalPlugins/consoleToolkit.py:141
+msgid "Suffix to be appendedd to commands in output capturing mode."
+msgstr "在输出捕获模式下，要附加到命令的后缀。"
+
+#: addon/globalPlugins/consoleToolkit.py:144
+msgid "Open captured output in"
+msgstr "在其中打开捕获的输出"
+
+#: addon/globalPlugins/consoleToolkit.py:149
+msgid "Capture timeout in seconds:"
+msgstr "捕获超时（秒）："
+
+#: addon/globalPlugins/consoleToolkit.py:154
+msgid "Volume of chime while capturing command output"
+msgstr "捕获命令输出时的蜂鸣声音量"
+
+#: addon/globalPlugins/consoleToolkit.py:168
+msgid "Capture timeout must be a positive integer"
+msgstr "捕获超时必须为正整数"
+
+#: addon/globalPlugins/consoleToolkit.py:404
+msgid "Edit text"
+msgstr "编辑文本"
+
+#: addon/globalPlugins/consoleToolkit.py:508
+msgid "Command output"
+msgstr "命令输出"
+
+#: addon/globalPlugins/consoleToolkit.py:696
+msgid "Failed to set review positionreveiew "
+msgstr "设置审核位置review失败"
+
+#: addon/globalPlugins/consoleToolkit.py:766
+msgid "Pasted"
+msgstr "粘贴"
+
+#: addon/globalPlugins/consoleToolkit.py:875
+msgid "Edit prompt"
+msgstr "编辑提示"
+
+#: addon/globalPlugins/consoleToolkit.py:876
+msgid "Opens accessible window that allows to edit current command line prompt."
+msgstr "打开可访问的窗口，允许编辑当前命令行提示。"
+
+#: addon/globalPlugins/consoleToolkit.py:881
+msgid "Capture command output"
+msgstr "捕获命令输出"
+
+#: addon/globalPlugins/consoleToolkit.py:882
+msgid "Executes command, captures output and presents it in accessible window."
+msgstr "执行命令，捕获输出并将其显示在可访问的窗口中。"
+
+#: addon/globalPlugins/consoleToolkit.py:915
+msgid "Control character found on the screen; clear window and try again."
+msgstr "屏幕上显示的控制字符；清除窗口，然后重试。"
+
+#: addon/globalPlugins/consoleToolkit.py:940 addon/globalPlugins/consoleToolkit.py:970
+msgid "Timed out while waiting for control characters to appear."
+msgstr "等待控制字符出现时超时。"
+
+#: addon/globalPlugins/consoleToolkit.py:1063
+msgid ""
+"Control+C: works in both cmd.exe and bash, but leaves previous prompt visible on the "
+"screen; doesn't work in emacs; sometimes unreliable on slow SSH connections"
+msgstr ""
+"Control+C：在cmd.exe和bash中都可以使用，但屏幕上会显示之前的提示；在emacs中不起作用；"
+"有时在慢速SSH连接上不可靠"
+
+#: addon/globalPlugins/consoleToolkit.py:1064
+msgid "Escape: works only in cmd.exe"
+msgstr "Escape: 只能在 cmd.exe 中工作"
+
+#: addon/globalPlugins/consoleToolkit.py:1065
+msgid "Control+A Control+K: works in bash and emacs; doesn't work in cmd.exe"
+msgstr "Control+A Control+K：适用于bash和emacs；在cmd.exe中不起作用"
+
+#: addon/globalPlugins/consoleToolkit.py:1066
+msgid ""
+"Backspace (recommended): works in all environments; however slower and may cause "
+"corruption if the length of the line has changed"
+msgstr ""
+"Backspace（推荐）：适用于所有环境；但是速度较慢，如果线路长度发生变化，可能会导致损坏"
+
+#: addon/globalPlugins/consoleToolkit.py:1134
+msgid "Timed out while waiting for modifiers to be released!"
+msgstr "等待修改器释放时超时！"
+
+#: addon/globalPlugins/consoleToolkit.py:1166
+msgid "Capture interrupted!"
+msgstr "捕获中断！"
+
+#: addon/globalPlugins/consoleToolkit.py:1210
+msgid "Timed out while waiting for command output!"
+msgstr "等待命令输出时超时！"
+
+#: addon/globalPlugins/consoleToolkit.py:1219
+msgid "Copy to clipboard"
+msgstr "复制到剪贴板"
+
+#: addon/globalPlugins/consoleToolkit.py:1220
+msgid "Open in temporary window"
+msgstr "在临时窗口中打开"
+
+#: addon/globalPlugins/consoleToolkit.py:1221
+msgid "Open in Notepad"
+msgstr "在记事本中打开"
+
+#: addon/globalPlugins/consoleToolkit.py:1222
+msgid "Open in Notepad++"
+msgstr "在 Notepad++ 中打开"
+
+#: addon/globalPlugins/consoleToolkit.py:1229
+msgid "Command output copied to clipboard"
+msgstr "命令输出已复制到剪贴板"
+
+#: addon/globalPlugins/consoleToolkit.py:1249
+msgid "Console toolkit"
+msgstr "控制台工具包"
+
+#: buildVars.py:17
+msgid "Console Toolkit"
+msgstr "控制台工具包"
+
+#: buildVars.py:20
+msgid "Accessibility improvements for Windows console."
+msgstr "Windows控制台的辅助功能改进。"
+
+msgid "Override shift+numPad7 behavior to take review cursor to the first visible line"
+msgstr "覆盖shift+numPad7行为，将查看光标移动到第一条可见线"
+
+msgid "Ignore repeated route review cursor events"
+msgstr "忽略重复的路线审查光标事件"

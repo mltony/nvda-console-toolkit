@@ -156,7 +156,7 @@ class SettingsDialog(SettingsPanel):
       # Output capture chime  volume slider
         sizer=wx.BoxSizer(wx.HORIZONTAL)
         label=wx.StaticText(self,wx.ID_ANY,label=_("Volume of chime while capturing command output"))
-        slider=wx.Slider(self, wx.NewId(), minValue=0,maxValue=100)
+        slider=wx.Slider(self, wx.ID_ANY, minValue=0,maxValue=100)
         slider.SetValue(getConfig("captureChimeVolume"))
         sizer.Add(label)
         sizer.Add(slider)

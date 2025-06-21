@@ -3,14 +3,14 @@ msgstr ""
 "Project-Id-Version: console-toolkit\n"
 "Report-Msgid-Bugs-To: 'nvda-translations@groups.io'\n"
 "POT-Creation-Date: 2025-06-03 20:27+0800\n"
-"PO-Revision-Date: 2025-06-03 20:37+0800\n"
+"PO-Revision-Date: 2025-06-14 18:18+0800\n"
 "Last-Translator: Alan <alanzhangmw@outlook.com>\n"
 "Language-Team: nvdacn.com\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 3.5\n"
+"X-Generator: Poedit 3.6\n"
 "X-Poedit-Basepath: ../../../..\n"
 "X-Poedit-SearchPath-0: addon/globalPlugins/consoleToolkit.py\n"
 "X-Poedit-SearchPath-1: buildVars.py\n"
@@ -18,7 +18,7 @@ msgstr ""
 #. Translators: Title for the settings dialog
 #: addon\globalPlugins\consoleToolkit.py:116
 msgid "Console Toolkit settings"
-msgstr "控制台工具包设置"
+msgstr "Console Toolkit"
 
 #. checkbox console realtime
 #. Translators: Checkbox for realtime console
@@ -30,29 +30,29 @@ msgstr "实时朗读控制台输出"
 #. Translators: Checkbox for console beep on update
 #: addon\globalPlugins\consoleToolkit.py:129
 msgid "Beep on update in consoles"
-msgstr "控制台更新时发出蜂鸣声"
+msgstr "控制台更新时播放提示音"
 
 #. checkbox enforce control+V in console
 #. Translators: Checkbox for control+V enforcement in console
 #: addon\globalPlugins\consoleToolkit.py:134
 msgid "Always enable Control+V in console (useful for SSH)"
-msgstr "始终在控制台中启用 Control+V（对 SSH 有用）"
+msgstr "始终在控制台中启用 Control+V（对 SSH 很有用）"
 
 #. Delete method Combo box
 #. Translators: Label for delete line method for prompt editing combo box
 #: addon\globalPlugins\consoleToolkit.py:140
 msgid "Method of deleting lines for prompt editing:"
-msgstr "删除行以便快速编辑的方法："
+msgstr "编辑提示符时删除行的方法："
 
 #. Capture suffix edit
 #: addon\globalPlugins\consoleToolkit.py:145
 msgid "Suffix to be appendedd to commands in output capturing mode."
-msgstr "在输出捕获模式下附加到命令的后缀。"
+msgstr "在输出捕获模式下，附加到命令的后缀。"
 
 #. capture open option combo box
 #: addon\globalPlugins\consoleToolkit.py:148
 msgid "Open captured output in"
-msgstr "打开捕获的输出"
+msgstr "捕获输出的打开方式"
 
 #. Capture timeout edit
 #: addon\globalPlugins\consoleToolkit.py:153
@@ -61,23 +61,23 @@ msgstr "捕获超时（秒）："
 
 #: addon\globalPlugins\consoleToolkit.py:158
 msgid "Volume of chime while capturing command output"
-msgstr "捕获命令输出时的蜂鸣声音量"
+msgstr "捕获命令输出时的提示音音量"
 
 #. checkbox override review top line behavior
 #: addon\globalPlugins\consoleToolkit.py:166
 msgid ""
 "Override shift+numPad7 behavior to take review cursor to the first visible "
 "line"
-msgstr "覆盖 shift+numPad7 行为，将查看光标移至第一行可见行"
+msgstr "重写 Shift+数字键盘7 的行为，将查看光标移动到第一行可见内容"
 
 #. checkbox override repeated review curosr events
 #: addon\globalPlugins\consoleToolkit.py:170
 msgid "Ignore repeated route review cursor events"
-msgstr "忽略重复的路线审查光标事件"
+msgstr "忽略重复的查看光标定位事件"
 
 #: addon\globalPlugins\consoleToolkit.py:180
 msgid "Capture timeout must be a positive integer"
-msgstr "捕获超时必须是正整数"
+msgstr "捕获超时必须为正整数"
 
 #: addon\globalPlugins\consoleToolkit.py:408
 msgid "Edit text"
@@ -90,20 +90,20 @@ msgstr "命令输出"
 
 #: addon\globalPlugins\consoleToolkit.py:706
 msgid "Failed to set review positionreveiew "
-msgstr "未能设置审核位置"
+msgstr "设置查看光标位置失败"
 
 #: addon\globalPlugins\consoleToolkit.py:778
 msgid "Pasted"
-msgstr "粘贴"
+msgstr "已粘贴"
 
 #: addon\globalPlugins\consoleToolkit.py:890
 msgid "Edit prompt"
-msgstr "编辑提示"
+msgstr "编辑提示符"
 
 #: addon\globalPlugins\consoleToolkit.py:891
 msgid ""
 "Opens accessible window that allows to edit current command line prompt."
-msgstr "打开可访问的窗口，允许编辑当前命令提示符。"
+msgstr "打开一个用于编辑当前行命令的可访问窗口。"
 
 #: addon\globalPlugins\consoleToolkit.py:896
 msgid "Capture command output"
@@ -111,16 +111,16 @@ msgstr "捕获命令输出"
 
 #: addon\globalPlugins\consoleToolkit.py:897
 msgid "Executes command, captures output and presents it in accessible window."
-msgstr "执行命令，捕获输出并将其显示在可访问的窗口中。"
+msgstr "执行命令，捕获输出并在可访问窗口中呈现。"
 
 #: addon\globalPlugins\consoleToolkit.py:930
 msgid "Control character found on the screen; clear window and try again."
-msgstr "在屏幕上发现控制字符；清除窗口并重试。"
+msgstr "在屏幕上发现控制字符；请清空窗口后重试。"
 
 #: addon\globalPlugins\consoleToolkit.py:955
 #: addon\globalPlugins\consoleToolkit.py:985
 msgid "Timed out while waiting for control characters to appear."
-msgstr "等待控制字符出现时超时。"
+msgstr "等待控制字符出现超时。"
 
 #: addon\globalPlugins\consoleToolkit.py:1078
 msgid ""
@@ -128,36 +128,36 @@ msgid ""
 "visible on the screen; doesn't work in emacs; sometimes unreliable on slow "
 "SSH connections"
 msgstr ""
-"Control+C：在 cmd.exe 和 bash 中均可用，但屏幕上会显示上一个提示符；在 emacs "
-"中不起作用；有时在慢速 SSH 连接上不可靠"
+"Control+C：在 `cmd.exe` 和 `bash` 中都有效，但会在屏幕上留下之前的提示符；在 "
+"emacs 中无效；在较慢的 SSH 连接上有时不可靠"
 
 #: addon\globalPlugins\consoleToolkit.py:1079
 msgid "Escape: works only in cmd.exe"
-msgstr "Escape：仅在 cmd.exe 中有效"
+msgstr "Escape：仅在 `cmd.exe` 中有效"
 
 #: addon\globalPlugins\consoleToolkit.py:1080
 msgid "Control+A Control+K: works in bash and emacs; doesn't work in cmd.exe"
-msgstr "Control+A Control+K：在 bash 和 emacs 中有效；在 cmd.exe 中无效"
+msgstr "Control+A Control+K：在 `bash` 和 `emacs` 中有效；在 `cmd.exe` 中无效"
 
 #: addon\globalPlugins\consoleToolkit.py:1081
 msgid ""
 "Backspace (recommended): works in all environments; however slower and may "
 "cause corruption if the length of the line has changed"
 msgstr ""
-"退格键（推荐）：适用于所有环境；但是速度较慢，并且如果行的长度发生变化，可能"
-"会导致损坏"
+"退格（推荐）：在所有环境中都有效；但速度较慢，且如果行长度发生变化可能会破坏"
+"内容"
 
 #: addon\globalPlugins\consoleToolkit.py:1166
 msgid "Timed out while waiting for modifiers to be released!"
-msgstr "等待修改器发布时超时！"
+msgstr "等待修饰键释放超时！"
 
 #: addon\globalPlugins\consoleToolkit.py:1198
 msgid "Capture interrupted!"
-msgstr "捕获中断！"
+msgstr "已打断捕获！"
 
 #: addon\globalPlugins\consoleToolkit.py:1242
 msgid "Timed out while waiting for command output!"
-msgstr "等待命令输出时超时！"
+msgstr "等待命令输出超时！"
 
 #: addon\globalPlugins\consoleToolkit.py:1251
 msgid "Copy to clipboard"
@@ -177,20 +177,20 @@ msgstr "在 Notepad++ 中打开"
 
 #: addon\globalPlugins\consoleToolkit.py:1261
 msgid "Command output copied to clipboard"
-msgstr "命令输出已复制到剪贴板"
+msgstr "已复制命令输出"
 
 #: addon\globalPlugins\consoleToolkit.py:1305
 msgid "Console toolkit"
-msgstr "控制台工具包"
+msgstr "Console Toolkit"
 
 #. Add-on summary, usually the user visible name of the addon.
 #. Translators: Summary for this add-on to be shown on installation and add-on information.
 #: buildVars.py:17
 msgid "Console Toolkit"
-msgstr "控制台工具包"
+msgstr "Console Toolkit"
 
 #. Add-on description
 #. Translators: Long description to be shown for this add-on on add-on information from add-ons manager
 #: buildVars.py:20
 msgid "Accessibility improvements for Windows console."
-msgstr "Windows 控制台的可访问性改进。"
+msgstr "为 Windows 控制台提供无障碍改进。"

@@ -56,6 +56,7 @@ import globalCommands
 import scriptHandler
 from UIAHandler.utils import _shouldUseWindowsTerminalNotifications
 from NVDAObjects.UIA.winConsoleUIA import _DiffBasedWinTerminalUIA, _NotificationsBasedWinTerminalUIA
+import buildVersion
 
 winmm = ctypes.windll.winmm
 TERMINAL_WINDOW_CLASS = 'Windows.UI.Input.InputSite.WindowClass'
@@ -156,7 +157,7 @@ class SettingsDialog(SettingsPanel):
       # Output capture chime  volume slider
         sizer=wx.BoxSizer(wx.HORIZONTAL)
         label=wx.StaticText(self,wx.ID_ANY,label=_("Volume of chime while capturing command output"))
-        slider=wx.Slider(self, wx.NewId(), minValue=0,maxValue=100)
+        slider=wx.Slider(self, wx.ID_ANY, minValue=0,maxValue=100)
         slider.SetValue(getConfig("captureChimeVolume"))
         sizer.Add(label)
         sizer.Add(slider)
@@ -210,13 +211,18 @@ class Beeper:
     MAX_CRACKLE_LEN = 400 # millis
     #MAX_BEEP_COUNT = MAX_CRACKLE_LEN // (BEEP_LEN + PAUSE_LEN)
     MAX_BEEP_COUNT = 40 # Corresponds to about 500 paragraphs with the log formula
+    if buildVersion.version_year > 2024:
+        # starting from NVDA 2025, the previous logic for retrieving output device has been changed. this fixed the problem by handling both cases
+        OUTPUT_DEVICE = config.conf["audio"]["outputDevice"]
+    else:
+        OUTPUT_DEVICE = config.conf["speech"]["outputDevice"]
 
     def __init__(self):
         self.player = nvwave.WavePlayer(
             channels=2,
             samplesPerSec=int(tones.SAMPLE_RATE),
             bitsPerSample=16,
-            outputDevice=config.conf["audio"]["outputDevice"],
+            outputDevice = self.OUTPUT_DEVICE,
             wantDucking=False
         )
 

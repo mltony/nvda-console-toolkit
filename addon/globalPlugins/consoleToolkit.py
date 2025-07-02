@@ -223,7 +223,8 @@ class Beeper:
             samplesPerSec=int(tones.SAMPLE_RATE),
             bitsPerSample=16,
             outputDevice = self.OUTPUT_DEVICE,
-            wantDucking=False
+            wantDucking=False,
+            purpose=nvwave.AudioPurpose.SOUNDS,
         )
 
 

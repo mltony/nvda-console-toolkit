@@ -1,0 +1,203 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the consoleToolkit package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: consoleToolkit 1.4.5\n"
+"Report-Msgid-Bugs-To: nvda-translations@groups.io\n"
+"POT-Creation-Date: 2025-08-27 09:04+0000\n"
+"PO-Revision-Date: 2025-08-27 14:52+0300\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: uk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.7\n"
+
+#. Translators: Title for the settings dialog
+#: addon/globalPlugins/consoleToolkit.py:117
+msgid "Console Toolkit settings"
+msgstr "Інструменти консолі"
+
+#. checkbox console realtime
+#. Translators: Checkbox for realtime console
+#: addon/globalPlugins/consoleToolkit.py:125
+msgid "Speak console output in realtime"
+msgstr "Промовляти вивід консолі в режимі реального часу"
+
+#. checkbox console beep
+#. Translators: Checkbox for console beep on update
+#: addon/globalPlugins/consoleToolkit.py:130
+msgid "Beep on update in consoles"
+msgstr "Звуковий сигнал при оновленні в консолях"
+
+#. checkbox enforce control+V in console
+#. Translators: Checkbox for control+V enforcement in console
+#: addon/globalPlugins/consoleToolkit.py:135
+msgid "Always enable Control+V in console (useful for SSH)"
+msgstr "Завжди вмикати Control+V у консолі (корисно для SSH)"
+
+#. Delete method Combo box
+#. Translators: Label for delete line method for prompt editing combo box
+#: addon/globalPlugins/consoleToolkit.py:141
+msgid "Method of deleting lines for prompt editing:"
+msgstr "Спосіб очищення рядків під час редагування запиту:"
+
+#. Capture suffix edit
+#: addon/globalPlugins/consoleToolkit.py:146
+msgid "Suffix to be appendedd to commands in output capturing mode."
+msgstr "Суфікс, що додається до команд у режимі захоплення виводу."
+
+#. capture open option combo box
+#: addon/globalPlugins/consoleToolkit.py:149
+msgid "Open captured output in"
+msgstr "Відкрити захоплений вивід у"
+
+#. Capture timeout edit
+#: addon/globalPlugins/consoleToolkit.py:154
+msgid "Capture timeout in seconds:"
+msgstr "Час очікування захоплення в секундах:"
+
+#: addon/globalPlugins/consoleToolkit.py:159
+msgid "Volume of chime while capturing command output"
+msgstr "Гучність сигналу під час захоплення виводу команди"
+
+#. checkbox override review top line behavior
+#: addon/globalPlugins/consoleToolkit.py:167
+msgid ""
+"Override shift+numPad7 behavior to take review cursor to the first visible "
+"line"
+msgstr ""
+"Перевизначити поведінку shift+numPad7, щоб перемістити курсор перегляду на "
+"перший видимий рядок"
+
+#. checkbox override repeated review curosr events
+#: addon/globalPlugins/consoleToolkit.py:171
+msgid "Ignore repeated route review cursor events"
+msgstr "Ігнорувати повторні події курсору перегляду маршруту"
+
+#: addon/globalPlugins/consoleToolkit.py:181
+msgid "Capture timeout must be a positive integer"
+msgstr "Тайм-аут захоплення повинен бути додатним цілим числом"
+
+#: addon/globalPlugins/consoleToolkit.py:415
+msgid "Edit text"
+msgstr "Редагування тексту"
+
+#. Translators: Title of  dialog
+#: addon/globalPlugins/consoleToolkit.py:519
+msgid "Command output"
+msgstr "Вивід команди"
+
+#: addon/globalPlugins/consoleToolkit.py:713
+msgid "Failed to set review positionreveiew "
+msgstr "Не вдалося встановити позицію перегляду "
+
+#: addon/globalPlugins/consoleToolkit.py:785
+msgid "Pasted"
+msgstr "Вставлено"
+
+#: addon/globalPlugins/consoleToolkit.py:897
+msgid "Edit prompt"
+msgstr "Редагувати запит"
+
+#: addon/globalPlugins/consoleToolkit.py:898
+msgid ""
+"Opens accessible window that allows to edit current command line prompt."
+msgstr ""
+"Відкриває доступне вікно, котре дозволяє редагувати поточний рядок запиту."
+
+#: addon/globalPlugins/consoleToolkit.py:903
+msgid "Capture command output"
+msgstr "Захопити вивід команди"
+
+#: addon/globalPlugins/consoleToolkit.py:904
+msgid "Executes command, captures output and presents it in accessible window."
+msgstr "Виконує команду, захоплює вивід та відображає його у доступному вікні."
+
+#: addon/globalPlugins/consoleToolkit.py:937
+msgid "Control character found on the screen; clear window and try again."
+msgstr ""
+"На екрані виявлено контрольний символ; очистіть вікно та спробуйте ще раз."
+
+#: addon/globalPlugins/consoleToolkit.py:962
+#: addon/globalPlugins/consoleToolkit.py:992
+msgid "Timed out while waiting for control characters to appear."
+msgstr "Вичерпано час очікування появи контрольних символів."
+
+#: addon/globalPlugins/consoleToolkit.py:1085
+msgid ""
+"Control+C: works in both cmd.exe and bash, but leaves previous prompt "
+"visible on the screen; doesn't work in emacs; sometimes unreliable on slow "
+"SSH connections"
+msgstr ""
+"Control+C: працює як в cmd.exe, так і в bash, але залишає попередній запит "
+"на екрані; не працює в emacs; іноді ненадійний при повільних SSH-з'єднаннях"
+
+#: addon/globalPlugins/consoleToolkit.py:1086
+msgid "Escape: works only in cmd.exe"
+msgstr "Escape: працює тільки в cmd.exe"
+
+#: addon/globalPlugins/consoleToolkit.py:1087
+msgid "Control+A Control+K: works in bash and emacs; doesn't work in cmd.exe"
+msgstr "Control+A Control+K: працює в bash та emacs; не працює в cmd.exe"
+
+#: addon/globalPlugins/consoleToolkit.py:1088
+msgid ""
+"Backspace (recommended): works in all environments; however slower and may "
+"cause corruption if the length of the line has changed"
+msgstr ""
+"Backspace (рекомендовано): працює в усіх середовищах; однак працює "
+"повільніше і може спричинити пошкодження, якщо довжина рядка змінилася"
+
+#: addon/globalPlugins/consoleToolkit.py:1173
+msgid "Timed out while waiting for modifiers to be released!"
+msgstr "Перевищено час очікування на відпускання модифікаторів!"
+
+#: addon/globalPlugins/consoleToolkit.py:1205
+msgid "Capture interrupted!"
+msgstr "Захоплення перервано!"
+
+#: addon/globalPlugins/consoleToolkit.py:1249
+msgid "Timed out while waiting for command output!"
+msgstr "Час очікування на вивід команди закінчився!"
+
+#: addon/globalPlugins/consoleToolkit.py:1258
+msgid "Copy to clipboard"
+msgstr "Скопіювати в буфер обміну"
+
+#: addon/globalPlugins/consoleToolkit.py:1259
+msgid "Open in temporary window"
+msgstr "Відкрити у тимчасовому вікні"
+
+#: addon/globalPlugins/consoleToolkit.py:1260
+msgid "Open in Notepad"
+msgstr "Відкрити в блокноті"
+
+#: addon/globalPlugins/consoleToolkit.py:1261
+msgid "Open in Notepad++"
+msgstr "Відкрити в Notepad++"
+
+#: addon/globalPlugins/consoleToolkit.py:1268
+msgid "Command output copied to clipboard"
+msgstr "Вивід команди скопійовано в буфер обміну"
+
+#: addon/globalPlugins/consoleToolkit.py:1312
+msgid "Console toolkit"
+msgstr "Інструменти консолі"
+
+#. Add-on summary, usually the user visible name of the addon.
+#. Translators: Summary for this add-on to be shown on installation and add-on information.
+#: buildVars.py:17
+msgid "Console Toolkit"
+msgstr "Інструменти консолі"
+
+#. Add-on description
+#. Translators: Long description to be shown for this add-on on add-on information from add-ons manager
+#: buildVars.py:20
+msgid "Accessibility improvements for Windows console."
+msgstr "Покращення доступності для консолі Windows."

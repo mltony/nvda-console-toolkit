@@ -1366,6 +1366,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         originalReview_top = globalCommands.commands.script_review_top
         globalCommands.commands.script_review_top = myReview_top
         globalCommands.commands._gestureMap['kb:numpad7+shift'] = globalCommands.commands.script_review_top
+        globalCommands.commands._gestureMap['kb(laptop):control+home+nvda'] = globalCommands.commands.script_review_top
 
     def  removeHooks(self):
         behaviors.LiveText._reportNewText = originalReportNewText
@@ -1379,6 +1380,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         del behaviors.Terminal._Terminal__gestures["kb:Control+Enter"]
         globalCommands.commands.script_review_top = originalReview_top
         globalCommands.commands._gestureMap['kb:numpad7+shift'] = globalCommands.commands.script_review_top
+        globalCommands.commands._gestureMap['kb(laptop):control+home+nvda'] = globalCommands.commands.script_review_top
 
     def preCalculateNewText(self, selfself, *args, **kwargs):
         oldLines = args[1]

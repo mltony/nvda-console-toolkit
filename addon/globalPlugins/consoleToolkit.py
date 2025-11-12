@@ -1398,6 +1398,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         originalReview_top = globalCommands.commands.script_review_top
         globalCommands.commands.script_review_top = myReview_top
         globalCommands.commands._gestureMap['kb:numpad7+shift'] = globalCommands.commands.script_review_top
+        globalCommands.commands._gestureMap['kb(laptop):control+home+nvda'] = globalCommands.commands.script_review_top
 
     def  removeHooks(self):
         behaviors.LiveText._reportNewText = originalReportNewText

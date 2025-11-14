@@ -1,119 +1,120 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: console-toolkit 1.4.2\n"
-"POT-Creation-Date: 2024-12-05 20:36+0700\n"
-"PO-Revision-Date: 2024-12-05 21:44+0700\n"
+"Project-Id-Version: console-toolkit 1.4.5\n"
+"POT-Creation-Date: 2025-11-14 15:24+0300\n"
+"PO-Revision-Date: 2025-11-14 15:26+0300\n"
 "Last-Translator: \n"
-"Language-Team: nvda.ru\n"
+"Language-Team: Russian translation team <nvda.ru>, Danil Kostenkov "
+"<danilkostenkov38@gmail.com>\n"
 "Language: ru_RU\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
-"X-Generator: Poedit 3.5\n"
+"X-Generator: Poedit 3.8\n"
 "X-Poedit-Basepath: ../../../..\n"
 "X-Poedit-SearchPath-0: .\n"
 "X-Poedit-SearchPath-1: addon/globalPlugins\n"
 
-#: addon/globalPlugins/consoleToolkit.py:116
+#: addon/globalPlugins/consoleToolkit.py:117
 msgid "Console Toolkit settings"
 msgstr "Настройки Инструментария для консоли"
 
-#: addon/globalPlugins/consoleToolkit.py:124
+#: addon/globalPlugins/consoleToolkit.py:125
 msgid "Speak console output in realtime"
 msgstr "Проговаривать вывод консоли в реальном времени"
 
-#: addon/globalPlugins/consoleToolkit.py:129
+#: addon/globalPlugins/consoleToolkit.py:130
 msgid "Beep on update in consoles"
 msgstr "Воспроизводить звуковой сигнал при обновлении в консолях"
 
-#: addon/globalPlugins/consoleToolkit.py:134
+#: addon/globalPlugins/consoleToolkit.py:135
 msgid "Always enable Control+V in console (useful for SSH)"
 msgstr "Всегда включать Control+V в консоли (полезно для SSH)"
 
-#: addon/globalPlugins/consoleToolkit.py:140
+#: addon/globalPlugins/consoleToolkit.py:141
 msgid "Method of deleting lines for prompt editing:"
 msgstr "Метод удаления строк при редактировании:"
 
-#: addon/globalPlugins/consoleToolkit.py:145
+#: addon/globalPlugins/consoleToolkit.py:146
 msgid "Suffix to be appendedd to commands in output capturing mode."
 msgstr "Суффикс, добавляемый к командам в режиме захвата вывода."
 
-#: addon/globalPlugins/consoleToolkit.py:148
+#: addon/globalPlugins/consoleToolkit.py:149
 msgid "Open captured output in"
 msgstr "Открывать захваченный вывод в"
 
-#: addon/globalPlugins/consoleToolkit.py:153
+#: addon/globalPlugins/consoleToolkit.py:154
 msgid "Capture timeout in seconds:"
 msgstr "Время ожидания захвата вывода команд в секундах:"
 
-#: addon/globalPlugins/consoleToolkit.py:158
+#: addon/globalPlugins/consoleToolkit.py:159
 msgid "Volume of chime while capturing command output"
 msgstr "Громкость звукового сигнала захвата вывода команд"
 
-#: addon/globalPlugins/consoleToolkit.py:166
+#: addon/globalPlugins/consoleToolkit.py:167
 msgid ""
 "Override shift+numPad7 behavior to take review cursor to the first visible "
 "line"
 msgstr "Shift+numPad7 перемещает просмотровый курсор на первую видимую строку"
 
-#: addon/globalPlugins/consoleToolkit.py:170
+#: addon/globalPlugins/consoleToolkit.py:171
 msgid "Ignore repeated route review cursor events"
 msgstr "Игнорировать повторяющиеся события перемещения просмотрового курсора"
 
-#: addon/globalPlugins/consoleToolkit.py:180
+#: addon/globalPlugins/consoleToolkit.py:181
 msgid "Capture timeout must be a positive integer"
 msgstr ""
 "Время ожидания захвата вывода команд должно быть целым положительным числом"
 
-#: addon/globalPlugins/consoleToolkit.py:408
+#: addon/globalPlugins/consoleToolkit.py:415
 msgid "Edit text"
 msgstr "Редактировать текст"
 
-#: addon/globalPlugins/consoleToolkit.py:512
+#: addon/globalPlugins/consoleToolkit.py:519
 msgid "Command output"
 msgstr "Вывод команд"
 
-#: addon/globalPlugins/consoleToolkit.py:706
+#: addon/globalPlugins/consoleToolkit.py:713
 msgid "Failed to set review positionreveiew "
 msgstr "Не удалось установить позицию просмотра в режиме просмотра "
 
-#: addon/globalPlugins/consoleToolkit.py:778
+#: addon/globalPlugins/consoleToolkit.py:785
 msgid "Pasted"
 msgstr "Вставлено"
 
-#: addon/globalPlugins/consoleToolkit.py:890
+#: addon/globalPlugins/consoleToolkit.py:897
 msgid "Edit prompt"
 msgstr "Редактор запроса"
 
-#: addon/globalPlugins/consoleToolkit.py:891
+#: addon/globalPlugins/consoleToolkit.py:898
 msgid ""
 "Opens accessible window that allows to edit current command line prompt."
 msgstr ""
 "Открывает доступное окно, позволяющее редактировать текущую строку командной "
 "строки."
 
-#: addon/globalPlugins/consoleToolkit.py:896
+#: addon/globalPlugins/consoleToolkit.py:903
 msgid "Capture command output"
 msgstr "Захват вывода команд"
 
-#: addon/globalPlugins/consoleToolkit.py:897
+#: addon/globalPlugins/consoleToolkit.py:904
 msgid "Executes command, captures output and presents it in accessible window."
 msgstr ""
 "Выполняет команду, захватывает вывод и представляет его в доступном окне."
 
-#: addon/globalPlugins/consoleToolkit.py:930
+#: addon/globalPlugins/consoleToolkit.py:937
 msgid "Control character found on the screen; clear window and try again."
 msgstr ""
 "На экране обнаружен управляющий символ; очистите окно и повторите попытку."
 
-#: addon/globalPlugins/consoleToolkit.py:955
-#: addon/globalPlugins/consoleToolkit.py:985
+#: addon/globalPlugins/consoleToolkit.py:962
+#: addon/globalPlugins/consoleToolkit.py:992
 msgid "Timed out while waiting for control characters to appear."
 msgstr "Время ожидания появления управляющих символов истекло."
 
-#: addon/globalPlugins/consoleToolkit.py:1078
+#: addon/globalPlugins/consoleToolkit.py:1085
 msgid ""
 "Control+C: works in both cmd.exe and bash, but leaves previous prompt "
 "visible on the screen; doesn't work in emacs; sometimes unreliable on slow "
@@ -123,15 +124,15 @@ msgstr ""
 "запрос видимым на экране; не работает в emacs; иногда ненадёжен при "
 "медленных SSH-соединениях"
 
-#: addon/globalPlugins/consoleToolkit.py:1079
+#: addon/globalPlugins/consoleToolkit.py:1086
 msgid "Escape: works only in cmd.exe"
 msgstr "Escape: работает только в cmd.exe"
 
-#: addon/globalPlugins/consoleToolkit.py:1080
+#: addon/globalPlugins/consoleToolkit.py:1087
 msgid "Control+A Control+K: works in bash and emacs; doesn't work in cmd.exe"
 msgstr "Control+A Control+K: работает в bash и emacs; не работает в cmd.exe"
 
-#: addon/globalPlugins/consoleToolkit.py:1081
+#: addon/globalPlugins/consoleToolkit.py:1088
 msgid ""
 "Backspace (recommended): works in all environments; however slower and may "
 "cause corruption if the length of the line has changed"
@@ -139,45 +140,45 @@ msgstr ""
 "Backspace (рекомендуется): работает во всех средах; однако работает "
 "медленнее и может привести к повреждению, если длина строки изменилась"
 
-#: addon/globalPlugins/consoleToolkit.py:1166
+#: addon/globalPlugins/consoleToolkit.py:1173
 msgid "Timed out while waiting for modifiers to be released!"
 msgstr "Захват прерван!Время ожидания выхода модификаторов истекло!"
 
-#: addon/globalPlugins/consoleToolkit.py:1198
+#: addon/globalPlugins/consoleToolkit.py:1205
 msgid "Capture interrupted!"
 msgstr "Захват вывода команд прерван!"
 
-#: addon/globalPlugins/consoleToolkit.py:1242
+#: addon/globalPlugins/consoleToolkit.py:1249
 msgid "Timed out while waiting for command output!"
 msgstr "Время ожидания вывода команды истекло!"
 
-#: addon/globalPlugins/consoleToolkit.py:1251
+#: addon/globalPlugins/consoleToolkit.py:1258
 msgid "Copy to clipboard"
 msgstr "Скопировать в буфер обмена"
 
-#: addon/globalPlugins/consoleToolkit.py:1252
+#: addon/globalPlugins/consoleToolkit.py:1259
 msgid "Open in temporary window"
 msgstr "Открыть во временном окне"
 
-#: addon/globalPlugins/consoleToolkit.py:1253
+#: addon/globalPlugins/consoleToolkit.py:1260
 msgid "Open in Notepad"
 msgstr "Открыть в блокноте"
 
-#: addon/globalPlugins/consoleToolkit.py:1254
+#: addon/globalPlugins/consoleToolkit.py:1261
 msgid "Open in Notepad++"
 msgstr "Открыть в Notepad++"
 
-#: addon/globalPlugins/consoleToolkit.py:1261
+#: addon/globalPlugins/consoleToolkit.py:1268
 msgid "Command output copied to clipboard"
 msgstr "Вывод команды скопирован в буфер обмена"
 
-#: addon/globalPlugins/consoleToolkit.py:1305
+#: addon/globalPlugins/consoleToolkit.py:1312
 msgid "Console toolkit"
 msgstr "Инструментарий для консоли"
 
 #: buildVars.py:17
 msgid "Console Toolkit"
-msgstr "Инструментарий для консоли"
+msgstr "Console Toolkit (Инструментарий для консоли)"
 
 #: buildVars.py:20
 msgid "Accessibility improvements for Windows console."

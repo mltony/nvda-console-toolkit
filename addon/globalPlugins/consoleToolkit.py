@@ -93,46 +93,6 @@ class VK:
 winmm = ctypes.windll.winmm
 TERMINAL_WINDOW_CLASS = 'Windows.UI.Input.InputSite.WindowClass'
 
-# Cache NVDAHelper/localLib detection so it doesn't branch on every beep call
-_cachedBeepFunc = None
-
-def generateBeepWrapped(buffer, freq, duration, volLeft, volRight):
-    global _cachedBeepFunc
-
-    if _cachedBeepFunc:
-        return _cachedBeepFunc(buffer, int(freq), int(duration), int(volLeft), int(volRight))
-
-    try:
-
-        # Preferred modern path
-        if hasattr(NVDAHelper, "localLib"):
-            lib = NVDAHelper.localLib
-            if hasattr(lib, "generateBeep"):
-                _cachedBeepFunc = lib.generateBeep
-                return _cachedBeepFunc(buffer, freq, duration, volLeft, volRight)
-            if hasattr(lib, "_nvdaControllerInternal_generateBeep"):
-                _cachedBeepFunc = lib._nvdaControllerInternal_generateBeep
-                return _cachedBeepFunc(buffer, freq, duration, volLeft, volRight)
-
-        # Legacy NVDAHelper
-        if hasattr(NVDAHelper, "generateBeep"):
-            _cachedBeepFunc = NVDAHelper.generateBeep
-            return _cachedBeepFunc(buffer, freq, duration, volLeft, volRight)
-
-    except Exception as e:
-
-    # Fallback only once
-    def _fallback(buf, f, d, l, r):
-        if buf is None:
-            try:
-                tones.beep(f, d)
-            except:
-                pass
-        return 0
-
-    _cachedBeepFunc = _fallback
-    return _cachedBeepFunc(buffer, freq, duration, volLeft, volRight)
-
 debug = False
 if debug:
     import threading
@@ -273,6 +233,46 @@ class Memoize:
         #Warning: You may wish to do a deepcopy here if returning objects
         return self.memo[args]
 
+# Cache NVDAHelper/localLib detection so it doesn't branch on every beep call
+_cachedBeepFunc = None
+
+def generateBeepWrapped(buffer, freq, duration, volLeft, volRight):
+    global _cachedBeepFunc
+
+    if _cachedBeepFunc:
+        return _cachedBeepFunc(buffer, int(freq), int(duration), int(volLeft), int(volRight))
+
+    try:
+
+        # Preferred modern path
+        if hasattr(NVDAHelper, "localLib"):
+            lib = NVDAHelper.localLib
+            if hasattr(lib, "generateBeep"):
+                _cachedBeepFunc = lib.generateBeep
+                return _cachedBeepFunc(buffer, freq, duration, volLeft, volRight)
+            if hasattr(lib, "_nvdaControllerInternal_generateBeep"):
+                _cachedBeepFunc = lib._nvdaControllerInternal_generateBeep
+                return _cachedBeepFunc(buffer, freq, duration, volLeft, volRight)
+
+        # Legacy NVDAHelper
+        if hasattr(NVDAHelper, "generateBeep"):
+            _cachedBeepFunc = NVDAHelper.generateBeep
+            return _cachedBeepFunc(buffer, freq, duration, volLeft, volRight)
+
+    except Exception as e:
+
+        # Fallback only once
+        def _fallback(buf, f, d, l, r):
+            if buf is None:
+                try:
+                    tones.beep(f, d)
+                except:
+                    pass
+        return 0
+
+    _cachedBeepFunc = _fallback
+    return _cachedBeepFunc(buffer, freq, duration, volLeft, volRight)
+
 class Beeper:
     BASE_FREQ = speech.IDT_BASE_FREQUENCY
     def getPitch(self, indent):
@@ -311,15 +311,15 @@ class Beeper:
         levels = self.uniformSample(levels, min(l, self.MAX_BEEP_COUNT ))
         beepLen = self.BEEP_LEN
         pauseLen = self.PAUSE_LEN
-        initialDelaySize = 0 if initialDelay == 0 else generateBeepWrapped(None,self.BASE_FREQ,initialDelay,0, 0)
-        pauseBufSize = generateBeepWrapped(None,self.BASE_FREQ,pauseLen,0, 0)
-        beepBufSizes = [generateBeepWrapped(None,self.getPitch(l), beepLen, volume, volume) for l in levels]
+        initialDelaySize = 0 if initialDelay == 0 else NVDAHelper.generateBeep(None,self.BASE_FREQ,initialDelay,0, 0)
+        pauseBufSize = NVDAHelper.generateBeep(None,self.BASE_FREQ,pauseLen,0, 0)
+        beepBufSizes = [NVDAHelper.generateBeep(None,self.getPitch(l), beepLen, volume, volume) for l in levels]
         bufSize = initialDelaySize + sum(beepBufSizes) + len(levels) * pauseBufSize
         buf = ctypes.create_string_buffer(bufSize)
         bufPtr = 0
         bufPtr += initialDelaySize
         for l in levels:
-            bufPtr += generateBeepWrapped(
+            bufPtr += NVDAHelper.generateBeep(
                 ctypes.cast(ctypes.byref(buf, bufPtr), ctypes.POINTER(ctypes.c_char)),
                 self.getPitch(l), beepLen, volume, volume)
             bufPtr += pauseBufSize # add a short pause
@@ -349,7 +349,7 @@ class Beeper:
         beepLen = length
         freqs = self.getChordFrequencies(chord)
         intSize = 8 # bytes
-        bufSize = max([generateBeepWrapped(None,freq, beepLen, right, left) for freq in freqs])
+        bufSize = max([NVDAHelper.generateBeep(None,freq, beepLen, right, left) for freq in freqs])
         if bufSize % intSize != 0:
             bufSize += intSize
             bufSize -= (bufSize % intSize)
@@ -358,7 +358,7 @@ class Beeper:
         result = [0] * (bufSize//intSize)
         for freq in freqs:
             buf = ctypes.create_string_buffer(bufSize)
-            generateBeepWrapped(buf, freq, beepLen, right, left)
+            NVDAHelper.generateBeep(buf, freq, beepLen, right, left)
             bytes = bytearray(buf)
             unpacked = struct.unpack("<%dQ" % (bufSize // intSize), bytes)
             result = map(operator.add, result, unpacked)
@@ -1438,7 +1438,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         originalReview_top = globalCommands.commands.script_review_top
         globalCommands.commands.script_review_top = myReview_top
         globalCommands.commands._gestureMap['kb:numpad7+shift'] = globalCommands.commands.script_review_top
-        globalCommands.commands._gestureMap['kb(laptop):control+home+nvda'] = globalCommands.commands.script_review_top
 
     def  removeHooks(self):
         behaviors.LiveText._reportNewText = originalReportNewText
@@ -1452,7 +1451,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         del behaviors.Terminal._Terminal__gestures["kb:Control+Enter"]
         globalCommands.commands.script_review_top = originalReview_top
         globalCommands.commands._gestureMap['kb:numpad7+shift'] = globalCommands.commands.script_review_top
-        globalCommands.commands._gestureMap['kb(laptop):control+home+nvda'] = globalCommands.commands.script_review_top
 
     def preCalculateNewText(self, selfself, *args, **kwargs):
         oldLines = args[1]

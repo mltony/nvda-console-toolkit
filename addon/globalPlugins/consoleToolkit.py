@@ -50,45 +50,13 @@ import types
 import ui
 import watchdog
 import wave
-try:
-    import winBindings
-    user32 = winBindings.user32.dll
-except ImportError:
-    # Final fallback: use ctypes directly
-    user32 = ctypes.windll.user32
+import winUser
 import wx
 import globalCommands
 import scriptHandler
 from UIAHandler.utils import _shouldUseWindowsTerminalNotifications
 from NVDAObjects.UIA.winConsoleUIA import _DiffBasedWinTerminalUIA, _NotificationsBasedWinTerminalUIA
 import buildVersion
-
-class VK:
-    # Virtual key constants (always available)
-
-    HOME     = 0x24
-    END      = 0x23
-    DELETE   = 0x2E
-    BACK     = 0x08
-    ESCAPE   = 0x1B
-    RETURN   = 0x0D
-    INSERT   = 0x2D
-
-    LCONTROL = 0xA2
-    RCONTROL = 0xA3
-    CONTROL  = LCONTROL   # neutral default
-
-    LSHIFT   = 0xA0
-    RSHIFT   = 0xA1
-    SHIFT    = LSHIFT     # neutral default
-
-    LMENU    = 0xA4       # LALT
-    RMENU    = 0xA5       # RALT
-    MENU     = LMENU      # neutral default
-
-    LWIN     = 0x5B
-    RWIN     = 0x5C
-    WIN      = LWIN       # neutral default
 
 winmm = ctypes.windll.winmm
 TERMINAL_WINDOW_CLASS = 'Windows.UI.Input.InputSite.WindowClass'
@@ -464,7 +432,7 @@ class SingleLineEditTextDialog(wx.Dialog):
         shift = event.ShiftDown()
         alt = event.AltDown()
         keyCode = event.GetKeyCode()
-        if event.GetKeyCode() in [10,VK.RETURN]:
+        if event.GetKeyCode() in [10,winUser.VK_RETURN]:
             # 10 means Control+Enter
             modifiers = [
                 control, shift, alt
@@ -568,7 +536,7 @@ class MultilineEditTextDialog(wx.Dialog):
         shift = event.ShiftDown()
         alt = event.AltDown()
         keyCode = event.GetKeyCode()
-        if event.GetKeyCode() in [10, VK.RETURN]:
+        if event.GetKeyCode() in [10, winUser.VK_RETURN]:
             # 10 means Control+Enter
             modifiers = [
                 control, shift, alt
@@ -674,19 +642,19 @@ def fromNameEnglish(name):
             # A key name can't include "+" except as a separator.
             keyName = "+"
         if keyName == keyboardHandler.VK_WIN:
-            vk = VK.LWIN
+            vk = winUser.VK_LWIN
             ext = False
         elif keyName.lower() == keyboardHandler.VK_NVDA.lower():
             vk, ext = keyboardHandler.getNVDAModifierKeys()[0]
         elif len(keyName) == 1:
             ext = False
-            requiredMods, vk = user32.VkKeyScanEx(keyName, en_us_input_Hkl)
+            requiredMods, vk = winUser.VkKeyScanEx(keyName, en_us_input_Hkl)
             if requiredMods & 1:
-                keys.append((VK.SHIFT, False))
+                keys.append((winUser.VK_SHIFT, False))
             if requiredMods & 2:
-                keys.append((VK.CONTROL, False))
+                keys.append((winUser.VK_CONTROL, False))
             if requiredMods & 4:
-                keys.append((VK.MENU, False))
+                keys.append((winUser.VK_MENU, False))
             # Not sure whether we need to support the Hankaku modifier (& 8).
         else:
             vk, ext = vkCodes.byName[keyName.lower()]
@@ -756,9 +724,9 @@ def ephemeralCopyToClip(text: str):
     """
     Copies string to clipboard without leaving an entry in clipboard history.
     """
-    with user32.openClipboard(gui.mainFrame.Handle):
-        user32.emptyClipboard()
-        user32.setClipboardData(user32.CF_UNICODETEXT, text)
+    with winUser.openClipboard(gui.mainFrame.Handle):
+        winUser.emptyClipboard()
+        winUser.setClipboardData(winUser.CF_UNICODETEXT, text)
         ephemeralFormat = ctypes.windll.user32.RegisterClipboardFormatW("ExcludeClipboardContentFromMonitorProcessing")
         ctypes.windll.user32.SetClipboardData(ephemeralFormat,None)
 
@@ -780,11 +748,11 @@ def interruptAndSpeakMessage(message):
 
 def verifyWindowUnderMousePointer(obj):
     _windowFromPoint = ctypes.windll.user32.WindowFromPoint
-    p = user32.getCursorPos()
+    p = winUser.getCursorPos()
     hwnd=_windowFromPoint(ctypes.wintypes.POINT(p[0],p[1]))
-    pid,tid=user32.getWindowThreadProcessID(hwnd)
+    pid,tid=winUser.getWindowThreadProcessID(hwnd)
     if pid != obj.processID:
-        title=user32.getWindowText(hwnd)
+        title=winUser.getWindowText(hwnd)
         am=appModuleHandler.AppModule(pid)
         api.q = {
             'title': title,
@@ -795,38 +763,38 @@ def verifyWindowUnderMousePointer(obj):
         Beeper().fancyBeep("HF", 100, volume, volume)
         # Here is what I think we should do:
         if False:
-            # https://docs.microsoft.com/en-us/windows/win32/api/user32/nf-user32-setwindowpos
+            # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
             HWND_BOTTOM = ctypes.wintypes.HWND(1)
-            user32.SetWindowPos(
+            winUser.user32.SetWindowPos(
                 api.q['hwnd'],
                 HWND_BOTTOM,
                 0, 0, 0, 0,
-                user32.SWP_NOACTIVATE | user32.SWP_NOMOVE | user32.SWP_NOSIZE
+                winUser.SWP_NOACTIVATE | winUser.SWP_NOMOVE | winUser.SWP_NOSIZE
             )
         raise Exception("Wrong window under mouse pointer. Relevant debug info has been saved to api.q.")
 
 def pastePuttyOld(obj):
     # This approach doesn't appear to work, since apparently Putty triggers context menu on right click. Middle button doesn't appear to do anything either.
-    origX, origY = user32.getCursorPos()
+    origX, origY = winUser.getCursorPos()
     (left,top,width,height) = obj.location
     x=left+(width//2)
     y=top+(height//2)
-    user32.setCursorPos(x,y)
-    mouseHandler.executeMouseEvent(user32.MOUSEEVENTF_RIGHTDOWN,0,0)
-    mouseHandler.executeMouseEvent(user32.MOUSEEVENTF_RIGHTUP,0,0)
+    winUser.setCursorPos(x,y)
+    mouseHandler.executeMouseEvent(winUser.MOUSEEVENTF_RIGHTDOWN,0,0)
+    mouseHandler.executeMouseEvent(winUser.MOUSEEVENTF_RIGHTUP,0,0)
     core.callLater(100, interruptAndSpeakMessage, _("Pasted"))
-    core.callLater(300, user32.setCursorPos, origX, origY)
+    core.callLater(300, winUser.setCursorPos, origX, origY)
 
 class ReleaseControlModifier:
-    AttachThreadInput = user32.AttachThreadInput
-    GetKeyboardState = user32.GetKeyboardState
-    SetKeyboardState = user32.SetKeyboardState
+    AttachThreadInput = winUser.user32.AttachThreadInput
+    GetKeyboardState = winUser.user32.GetKeyboardState
+    SetKeyboardState = winUser.user32.SetKeyboardState
     
     def __init__(self, obj):
         self.obj = obj
     def __enter__(self):
         hwnd =  self.obj.windowHandle
-        processID,ThreadId = user32.getWindowThreadProcessID(hwnd)
+        processID,ThreadId = winUser.getWindowThreadProcessID(hwnd)
         self.ThreadId = ThreadId
         self.AttachThreadInput(ctypes.windll.kernel32.GetCurrentThreadId(), ThreadId, True)
         PBYTE256 = ctypes.c_ubyte * 256
@@ -864,7 +832,7 @@ controlCharacter = "⌂" # character code 127
 def getVkLetter(keyName):
     en_us_input_Hkl = 1033 + (1033 << 16)
     try:
-        requiredMods, vk = user32.VkKeyScanEx(keyName, en_us_input_Hkl)
+        requiredMods, vk = winUser.VkKeyScanEx(keyName, en_us_input_Hkl)
         return vk
     except LookupError:
         # This might fail if there is no English keyboard layout
@@ -878,10 +846,10 @@ def getVkLetter(keyName):
         return knownVks[keyName.upper()]
 def getVkCodes():
     d = {}
-    d['home'] = (VK.HOME, True)
-    d['end'] = (VK.END, True)
-    d['delete'] = (VK.DELETE, True)
-    d['backspace'] = (VK.BACK, False)
+    d['home'] = (winUser.VK_HOME, True)
+    d['end'] = (winUser.VK_END, True)
+    d['delete'] = (winUser.VK_DELETE, True)
+    d['backspace'] = (winUser.VK_BACK, False)
     return d
 
 KEYEVENTF_EXTENDEDKEY = 0x0001
@@ -895,7 +863,7 @@ def makeVkInput(pairs):
         except TypeError:
             vk = pair
             extended = False
-        input = user32.Input(type=user32.INPUT_KEYBOARD)
+        input = winUser.Input(type=winUser.INPUT_KEYBOARD)
         input.ii.ki.wVk = vk
         input.ii.ki.dwFlags = (KEYEVENTF_EXTENDEDKEY * extended)
         result.append(input)
@@ -904,22 +872,22 @@ def makeVkInput(pairs):
             vk, extended = pair
         except TypeError:
             vk = pair
-        input = user32.Input(type=user32.INPUT_KEYBOARD)
+        input = winUser.Input(type=winUser.INPUT_KEYBOARD)
         input.ii.ki.wVk = vk
-        input.ii.ki.dwFlags = (KEYEVENTF_EXTENDEDKEY * extended) | user32.KEYEVENTF_KEYUP
+        input.ii.ki.dwFlags = (KEYEVENTF_EXTENDEDKEY * extended) | winUser.KEYEVENTF_KEYUP
         result.append(input)
     return result
 
 def makeUnicodeInput(string):
     result = []
     for c in string:
-        input = user32.Input(type=user32.INPUT_KEYBOARD)
+        input = winUser.Input(type=winUser.INPUT_KEYBOARD)
         input.ii.ki.wScan = ord(c)
-        input.ii.ki.dwFlags = user32.KEYEVENTF_UNICODE
+        input.ii.ki.dwFlags = winUser.KEYEVENTF_UNICODE
         result.append(input)
-        input2 = user32.Input(type=user32.INPUT_KEYBOARD)
+        input2 = winUser.Input(type=winUser.INPUT_KEYBOARD)
         input2.ii.ki.wScan = ord(c)
-        input2.ii.ki.dwFlags = user32.KEYEVENTF_UNICODE | user32.KEYEVENTF_KEYUP
+        input2.ii.ki.dwFlags = winUser.KEYEVENTF_UNICODE | winUser.KEYEVENTF_KEYUP
         result.append(input2)
     return result
 
@@ -952,9 +920,9 @@ def captureOutputAsync(self, gesture):
         d = getVkCodes()
         inputs+= makeVkInput(d['end'])
         inputs += makeUnicodeInput(captureSuffix)
-    inputs += makeVkInput([VK.RETURN])
+    inputs += makeVkInput([winUser.VK_RETURN])
     with keyboardHandler.ignoreInjection():
-        user32.SendInput(inputs)
+        winUser.SendInput(inputs)
     captureStopFlag =False
 
     executeAsynchronously(captureAsync(self, None))
@@ -977,7 +945,7 @@ def extractCurrentPrompt(obj, promptResult):
     inputs.extend(makeUnicodeInput(controlCharacter))
     controlCharactersAtStart = 1
     with keyboardHandler.ignoreInjection():
-        user32.SendInput(inputs)
+        winUser.SendInput(inputs)
 
     try:
         timeoutSeconds = 1
@@ -1008,7 +976,7 @@ def extractCurrentPrompt(obj, promptResult):
             inputs.extend(makeVkInput(d['home']))
             inputs.extend(makeUnicodeInput(controlCharacter))
             with keyboardHandler.ignoreInjection():
-                user32.SendInput(inputs)
+                winUser.SendInput(inputs)
             controlCharactersAtStart += 1
             timeoutSeconds = 1
             timeout = time.time() + timeoutSeconds
@@ -1035,7 +1003,7 @@ def extractCurrentPrompt(obj, promptResult):
         inputs.extend(makeVkInput(d['end']))
         inputs.extend(makeVkInput(d['backspace']))
         with keyboardHandler.ignoreInjection():
-            user32.SendInput(inputs)
+            winUser.SendInput(inputs)
     if UIAMode:
         text1 = text1.replace("\n", "").replace("\r", "")
         text2 = text2.replace("\n", "").replace("\r", "")
@@ -1126,7 +1094,7 @@ def getControlVGesture():
     except LookupError:
         # This happens if vk code for letter V fails to resolve, when current keyboard layout is for example Russian
         # vk code for V key is 86
-        return keyboardHandler.KeyboardInputGesture(modifiers={(VK.CONTROL, False)}, vkCode=86, scanCode=0, isExtended=False)
+        return keyboardHandler.KeyboardInputGesture(modifiers={(winUser.VK_CONTROL, False)}, vkCode=86, scanCode=0, isExtended=False)
 
 def updatePrompt(result, text, keystroke, oldText, obj):
     yield from waitUntilModifiersReleased()
@@ -1147,26 +1115,26 @@ def updatePrompt(result, text, keystroke, oldText, obj):
     method = getConfig("deletePromptMethod")
     inputs = []
     if method == DELETE_METHOD_CONTROL_C:
-        inputs.extend(makeVkInput([VK.LCONTROL, getVkLetter("C")]))
+        inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("C")]))
     elif method == DELETE_METHOD_ESCAPE:
-        inputs.extend(makeVkInput(VK.ESCAPE))
+        inputs.extend(makeVkInput(winUser.VK_ESCAPE))
     elif method == DELETE_METHOD_CONTROL_K:
-        inputs.extend(makeVkInput([VK.LCONTROL, getVkLetter("A")]))
-        inputs.extend(makeVkInput([VK.LCONTROL, getVkLetter("K")]))
+        inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("A")]))
+        inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("K")]))
     elif method == DELETE_METHOD_BACKSPACE:
-        inputs.extend(makeVkInput(VK.END))
+        inputs.extend(makeVkInput(winUser.VK_END))
         for dummy in range(len(oldText)):
-            inputs.extend(makeVkInput(VK.BACK))
+            inputs.extend(makeVkInput(winUser.VK_BACK))
     else:
         raise Exception(f"Unknown method {method}!")
     isWindowsTerminal = getattr(obj, 'windowClassName', None) == TERMINAL_WINDOW_CLASS
     if isinstance(obj, PuttyControlV):
-        inputs.extend(makeVkInput([VK.SHIFT, (VK.INSERT, True)]))
+        inputs.extend(makeVkInput([winUser.VK_SHIFT, (winUser.VK_INSERT, True)]))
     elif isWindowsTerminal:
-        inputs.extend(makeVkInput([VK.LCONTROL, getVkLetter("V")]))
+        inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("V")]))
     with BackupClipboard(text):
         with keyboardHandler.ignoreInjection():
-            user32.SendInput(inputs)
+            winUser.SendInput(inputs)
         if isinstance(obj, ConsoleControlV):
             pasteConsole(obj)
         elif isinstance(obj, PuttyControlV):
@@ -1186,9 +1154,9 @@ def updatePrompt(result, text, keystroke, oldText, obj):
 
 
 allModifiers = [
-    VK.LCONTROL, VK.RCONTROL,
-    VK.LSHIFT, VK.RSHIFT, VK.LMENU,
-    VK.RMENU, VK.LWIN, VK.RWIN,
+    winUser.VK_LCONTROL, winUser.VK_RCONTROL,
+    winUser.VK_LSHIFT, winUser.VK_RSHIFT, winUser.VK_LMENU,
+    winUser.VK_RMENU, winUser.VK_LWIN, winUser.VK_RWIN,
 ]
 
 def waitUntilModifiersReleased():
@@ -1196,7 +1164,7 @@ def waitUntilModifiersReleased():
     timeout = time.time() + timeoutSeconds
     while time.time() < timeout:
         status = [
-            user32.getKeyState(k) & 32768
+            winUser.getKeyState(k) & 32768
             for k in allModifiers
         ]
         if not any(status):
@@ -1214,8 +1182,8 @@ def injectKeystroke(hWnd, vkCode):
     mylog(f"injectKeystroke({vkCode}, {hWnd})")
     WM_KEYDOWN                      =0x0100
     WM_KEYUP                        =0x0101
-    user32.PostMessage(hWnd, WM_KEYDOWN, vkCode, 1)
-    user32.PostMessage(hWnd, WM_KEYUP, vkCode, 1 | (1<<30) | (1<<31))
+    winUser.PostMessage(hWnd, WM_KEYDOWN, vkCode, 1)
+    winUser.PostMessage(hWnd, WM_KEYUP, vkCode, 1 | (1<<30) | (1<<31))
 
 captureBeeper = Beeper()
 captureStopFlag = False
@@ -1398,6 +1366,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         originalReview_top = globalCommands.commands.script_review_top
         globalCommands.commands.script_review_top = myReview_top
         globalCommands.commands._gestureMap['kb:numpad7+shift'] = globalCommands.commands.script_review_top
+        globalCommands.commands._gestureMap['kb(laptop):control+home+nvda'] = globalCommands.commands.script_review_top
 
     def  removeHooks(self):
         behaviors.LiveText._reportNewText = originalReportNewText
@@ -1411,6 +1380,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         del behaviors.Terminal._Terminal__gestures["kb:Control+Enter"]
         globalCommands.commands.script_review_top = originalReview_top
         globalCommands.commands._gestureMap['kb:numpad7+shift'] = globalCommands.commands.script_review_top
+        globalCommands.commands._gestureMap['kb(laptop):control+home+nvda'] = globalCommands.commands.script_review_top
 
     def preCalculateNewText(self, selfself, *args, **kwargs):
         oldLines = args[1]
@@ -1451,8 +1421,8 @@ class TmuxWindowSwitcher(NVDAObject):
     @script(description='Switch to tmux window', gestures=[f'kb:Control+{i}' for i in range(10)])
     def script_switchToTmuxWindow(self, gesture):
         inputs = []
-        inputs.extend(makeVkInput([VK.LCONTROL, getVkLetter("B")]))
+        inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("B")]))
         inputs.extend(makeVkInput([getVkLetter(gesture.mainKeyName)]))
         with keyboardHandler.ignoreInjection():
-            user32.SendInput(inputs)
+            winUser.SendInput(inputs)
         tones.beep(100, 20, 20, 20)

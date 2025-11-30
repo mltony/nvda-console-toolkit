@@ -60,7 +60,7 @@ import buildVersion
 import winBindings
 
 winmm = ctypes.windll.winmm
-TERMINAL_WINDOW_CLASS = 'Windows.UI.Input.InputSite.WindowClass'
+TERMINAL_WINDOW_CLASSES = ['Windows.UI.Input.InputSite.WindowClass', 'CASCADIA_HOSTING_WINDOW_CLASS']
 
 debug = False
 if debug:
@@ -1131,7 +1131,7 @@ def updatePrompt(result, text, keystroke, oldText, obj):
             inputs.extend(makeVkInput(winUser.VK_BACK))
     else:
         raise Exception(f"Unknown method {method}!")
-    isWindowsTerminal = getattr(obj, 'windowClassName', None) == TERMINAL_WINDOW_CLASS
+    isWindowsTerminal = getattr(obj, 'windowClassName', None) in TERMINAL_WINDOW_CLASSES
     if isinstance(obj, PuttyControlV):
         inputs.extend(makeVkInput([winUser.VK_SHIFT, (winUser.VK_INSERT, True)]))
     elif isWindowsTerminal:
@@ -1334,7 +1334,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             elif window_class_name == 'PuTTY':
                 clsList.insert(0, PuttyControlV)
                 clsList.insert(1, TmuxWindowSwitcher)
-            elif window_class_name == TERMINAL_WINDOW_CLASS:
+            elif window_class_name in TERMINAL_WINDOW_CLASSES:
                 clsList.insert(0, TmuxWindowSwitcher)
 
 

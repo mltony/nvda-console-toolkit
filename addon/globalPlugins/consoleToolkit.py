@@ -1427,9 +1427,24 @@ class PuttyControlV(NVDAObject):
 class TmuxWindowSwitcher(NVDAObject):
     @script(description='Switch to tmux window', gestures=[f'kb:Control+{i}' for i in range(10)])
     def script_switchToTmuxWindow(self, gesture):
+        for modVk, modExt in gesture.modifiers:
+            if modVk == winUser.VK_RCONTROL:
+                # For some reason with right control we need to wait until it is released,
+                # otherwise number keystroke won't go through.
+                executeAsynchronously(self.switchToTmuxWindowAsync(gesture))
+                return
+        self.switchToTmuxWindowSync(gesture)
+        
+    def switchToTmuxWindowAsync(self, gesture):
+        for delay in waitUntilModifiersReleased():
+            yield delay
+        self.switchToTmuxWindowSync(gesture)
+
+    def switchToTmuxWindowSync(self, gesture):
         inputs = []
         inputs.extend(makeVkInput([winUser.VK_LCONTROL, getVkLetter("B")]))
         inputs.extend(makeVkInput([getVkLetter(gesture.mainKeyName)]))
         with keyboardHandler.ignoreInjection():
             winUser.SendInput(inputs)
         tones.beep(100, 20, 20, 20)
+

@@ -9,7 +9,7 @@ Install from add-on store.
 
 ## Jump to the first visible line
 
-Console toolkit overrides ``shift+numpad7` command in UIA consoles: instead of reading the first line in the entire buffer it now reads the first visible line at the top of the window. Press `shift+numpad7` twice to revert to the old behavior and read the first line of the buffer.
+Console toolkit overrides `shift+numpad7` command in UIA consoles: instead of reading the first line in the entire buffer it now reads the first visible line at the top of the window. Press `shift+numpad7` twice to revert to the old behavior and read the first line of the buffer.
 
 ## Real-time console speech
 

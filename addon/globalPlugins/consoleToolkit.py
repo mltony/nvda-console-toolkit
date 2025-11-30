@@ -57,6 +57,7 @@ import scriptHandler
 from UIAHandler.utils import _shouldUseWindowsTerminalNotifications
 from NVDAObjects.UIA.winConsoleUIA import _DiffBasedWinTerminalUIA, _NotificationsBasedWinTerminalUIA
 import buildVersion
+import winBindings
 
 winmm = ctypes.windll.winmm
 TERMINAL_WINDOW_CLASS = 'Windows.UI.Input.InputSite.WindowClass'
@@ -765,7 +766,7 @@ def verifyWindowUnderMousePointer(obj):
         if False:
             # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
             HWND_BOTTOM = ctypes.wintypes.HWND(1)
-            winUser.user32.SetWindowPos(
+            winBindings.user32.dll.SetWindowPos(
                 api.q['hwnd'],
                 HWND_BOTTOM,
                 0, 0, 0, 0,
@@ -786,9 +787,9 @@ def pastePuttyOld(obj):
     core.callLater(300, winUser.setCursorPos, origX, origY)
 
 class ReleaseControlModifier:
-    AttachThreadInput = winUser.user32.AttachThreadInput
-    GetKeyboardState = winUser.user32.GetKeyboardState
-    SetKeyboardState = winUser.user32.SetKeyboardState
+    AttachThreadInput = winBindings.user32.dll.AttachThreadInput
+    GetKeyboardState = winBindings.user32.dll.GetKeyboardState
+    SetKeyboardState = winBindings.user32.dll.SetKeyboardState
     
     def __init__(self, obj):
         self.obj = obj
@@ -863,7 +864,7 @@ def makeVkInput(pairs):
         except TypeError:
             vk = pair
             extended = False
-        input = winUser.Input(type=winUser.INPUT_KEYBOARD)
+        input = winBindings.user32.INPUT(type=winBindings.user32.INPUT_TYPE.KEYBOARD)
         input.ii.ki.wVk = vk
         input.ii.ki.dwFlags = (KEYEVENTF_EXTENDEDKEY * extended)
         result.append(input)
@@ -872,22 +873,22 @@ def makeVkInput(pairs):
             vk, extended = pair
         except TypeError:
             vk = pair
-        input = winUser.Input(type=winUser.INPUT_KEYBOARD)
+        input = winBindings.user32.INPUT(type=winBindings.user32.INPUT_TYPE.KEYBOARD)
         input.ii.ki.wVk = vk
-        input.ii.ki.dwFlags = (KEYEVENTF_EXTENDEDKEY * extended) | winUser.KEYEVENTF_KEYUP
+        input.ii.ki.dwFlags = (KEYEVENTF_EXTENDEDKEY * extended) | winBindings.user32.KEYEVENTF.KEYUP
         result.append(input)
     return result
 
 def makeUnicodeInput(string):
     result = []
     for c in string:
-        input = winUser.Input(type=winUser.INPUT_KEYBOARD)
+        input = winBindings.user32.INPUT(type=winBindings.user32.INPUT_TYPE.KEYBOARD)
         input.ii.ki.wScan = ord(c)
-        input.ii.ki.dwFlags = winUser.KEYEVENTF_UNICODE
+        input.ii.ki.dwFlags = winBindings.user32.KEYEVENTF.UNICODE
         result.append(input)
-        input2 = winUser.Input(type=winUser.INPUT_KEYBOARD)
+        input2 = winBindings.user32.INPUT(type=winBindings.user32.INPUT_TYPE.KEYBOARD)
         input2.ii.ki.wScan = ord(c)
-        input2.ii.ki.dwFlags = winUser.KEYEVENTF_UNICODE | winUser.KEYEVENTF_KEYUP
+        input2.ii.ki.dwFlags = winBindings.user32.KEYEVENTF.UNICODE | winBindings.user32.KEYEVENTF.KEYUP
         result.append(input2)
     return result
 

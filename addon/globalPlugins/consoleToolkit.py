@@ -622,11 +622,8 @@ class MultilineEditTextDialog(wx.Dialog):
 def popupEditTextDialog(text, onTextComplete):
     gui.mainFrame.prePopup()
     d = SingleLineEditTextDialog(gui.mainFrame, text, onTextComplete)
-    try:
-        result = d.ShowModal()
-    finally:
-        gui.mainFrame.postPopup()
-        d.Destroy()
+    result = d.Show()
+    gui.mainFrame.postPopup()
 
 # This function is a fixed version of fromName function.
 # As of v2020.3 it doesn't work correctly for gestures containing letters when the default locale on the computer is set to non-Latin, such as Russian.
@@ -1273,11 +1270,8 @@ def presentCaptureResult(lines):
     elif option == CAPTURE_OPEN_TEMP_WINDOW:
         gui.mainFrame.prePopup()
         d = MultilineEditTextDialog(gui.mainFrame, output, None)
-        try:
-            d.ShowModal()
-        finally:
-            gui.mainFrame.postPopup()
-            d.Destroy()
+        result = d.Show()
+        gui.mainFrame.postPopup()
     elif option in [CAPTION_OPEN_NOTEPAD, CAPTION_OPEN_NPP]:
         # Prepare temp file
         tf = tempfile.NamedTemporaryFile(delete=False, prefix="temp_")

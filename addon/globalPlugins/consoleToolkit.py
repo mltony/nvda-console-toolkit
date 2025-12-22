@@ -417,6 +417,9 @@ class SingleLineEditTextDialog(wx.Dialog):
         super(SingleLineEditTextDialog, self).__init__(parent, title=title_string)
         self.text = text
         self.onTextComplete = onTextComplete
+        self.keystroke = None
+        self._finished = False
+
         mainSizer = wx.BoxSizer(wx.VERTICAL)
         sHelper = gui.guiHelper.BoxSizerHelper(self, orientation=wx.VERTICAL)
 
@@ -427,6 +430,36 @@ class SingleLineEditTextDialog(wx.Dialog):
         self.textCtrl.SetValue(text)
         self.SetFocus()
         self.Maximize(True)
+
+    def _finish(self, resultCode):
+        if self._finished:
+            return
+        self._finished = True
+
+        self.text = self.textCtrl.GetValue()
+
+        # Keep your existing behavior:
+        self.temporarilySuspendTerminalTitleAnnouncement()
+
+        # Fire callback after the window is gone.
+        def runCallback():
+            try:
+                self.onTextComplete(resultCode, self.text, self.keystroke)
+            finally:
+                # Destroy safely from the UI thread
+                if self:
+                    self.Destroy()
+
+        # Close the modeless dialog (no EndModal).
+        self.Hide()
+        self.Close()  # triggers EVT_CLOSE; _onClose will also guard via _finished
+        wx.CallAfter(runCallback)
+
+    def _onClose(self, evt):
+        # User clicked X / Alt+F4 / etc.
+        self.keystroke = None
+        self._finish(wx.ID_CANCEL)
+        evt.Skip()
 
     def onChar(self, event):
         control = event.ControlDown()
@@ -450,10 +483,8 @@ class SingleLineEditTextDialog(wx.Dialog):
             ]
             keystrokeName = "+".join(modifierTokens + ["Enter"])
             self.keystroke = fromNameSmart(keystrokeName)
-            self.text = self.textCtrl.GetValue()
-            self.temporarilySuspendTerminalTitleAnnouncement()
-            self.EndModal(wx.ID_OK)
-            wx.CallAfter(lambda: self.onTextComplete(wx.ID_OK, self.text, self.keystroke))
+            self._finish(wx.ID_OK)
+            return
         elif event.GetKeyCode() == wx.WXK_TAB:
             if alt or control:
                 event.Skip()
@@ -499,10 +530,9 @@ class SingleLineEditTextDialog(wx.Dialog):
     def OnKeyUP(self, event):
         keyCode = event.GetKeyCode()
         if keyCode == wx.WXK_ESCAPE:
-            self.text = self.textCtrl.GetValue()
-            self.temporarilySuspendTerminalTitleAnnouncement()
-            self.EndModal(wx.ID_CANCEL)
-            wx.CallAfter(lambda: self.onTextComplete(wx.ID_CANCEL, self.text, None))
+            self.keystroke = None
+            self._finish(wx.ID_CANCEL)
+            return
         event.Skip()
 
     def temporarilySuspendTerminalTitleAnnouncement(self):
@@ -521,6 +551,9 @@ class MultilineEditTextDialog(wx.Dialog):
         super(MultilineEditTextDialog, self).__init__(parent, title=title_string)
         self.text = text
         self.onTextComplete = onTextComplete
+        self.keystroke = None
+        self._finished = False
+
         mainSizer = wx.BoxSizer(wx.VERTICAL)
         sHelper = gui.guiHelper.BoxSizerHelper(self, orientation=wx.VERTICAL)
 
@@ -531,6 +564,37 @@ class MultilineEditTextDialog(wx.Dialog):
         self.textCtrl.SetValue(text)
         self.SetFocus()
         self.Maximize(True)
+    
+    def _finish(self, resultCode):
+        if self._finished:
+            return
+        self._finished = True
+
+        self.text = self.textCtrl.GetValue()
+
+        # Keep your existing behavior:
+        self.temporarilySuspendTerminalTitleAnnouncement()
+
+        # Fire callback after the window is gone.
+        def runCallback():
+            try:
+                self.onTextComplete(resultCode, self.text, self.keystroke)
+            finally:
+                # Destroy safely from the UI thread
+                if self:
+                    self.Destroy()
+
+        # Close the modeless dialog (no EndModal).
+        self.Hide()
+        self.Close()  # triggers EVT_CLOSE; _onClose will also guard via _finished
+        wx.CallAfter(runCallback)
+
+    def _onClose(self, evt):
+        # User clicked X / Alt+F4 / etc.
+        self.keystroke = None
+        self._finish(wx.ID_CANCEL)
+        evt.Skip()
+
 
     def onChar(self, event):
         control = event.ControlDown()
@@ -566,9 +630,8 @@ class MultilineEditTextDialog(wx.Dialog):
                 ]
                 keystrokeName = "+".join(modifierTokens + ["Enter"])
                 self.keystroke = fromNameSmart(keystrokeName)
-                self.text = self.textCtrl.GetValue()
-                self.EndModal(wx.ID_OK)
-                #wx.CallAfter(lambda: self.onTextComplete(wx.ID_OK, self.text, self.keystroke))
+                self._finish(wx.ID_OK)
+                return
         elif event.GetKeyCode() == wx.WXK_TAB:
             if alt or control:
                 event.Skip()
@@ -614,14 +677,26 @@ class MultilineEditTextDialog(wx.Dialog):
     def OnKeyUP(self, event):
         keyCode = event.GetKeyCode()
         if keyCode == wx.WXK_ESCAPE:
-            self.text = self.textCtrl.GetValue()
-            self.EndModal(wx.ID_CANCEL)
-            #wx.CallAfter(lambda: self.onTextComplete(wx.ID_CANCEL, self.text, None))
+            self.keystroke = None
+            self._finish(wx.ID_CANCEL)
+            return
         event.Skip()
 
+_currentEditDialog = None
+
 def popupEditTextDialog(text, onTextComplete):
+    global _currentEditDialog
     gui.mainFrame.prePopup()
     d = SingleLineEditTextDialog(gui.mainFrame, text, onTextComplete)
+    _currentEditDialog = d
+    
+    def clearRef():
+        global _currentEditDialog
+        _currentEditDialog = None
+
+    # Ensure reference cleared when destroyed
+    d.Bind(wx.EVT_WINDOW_DESTROY, lambda evt: (clearRef(), evt.Skip()))
+
     result = d.Show()
     gui.mainFrame.postPopup()
 

@@ -444,7 +444,8 @@ class SingleLineEditTextDialog(wx.Dialog):
         # Fire callback after the window is gone.
         def runCallback():
             try:
-                self.onTextComplete(resultCode, self.text, self.keystroke)
+                if self.onTextComplete is not None:
+                    self.onTextComplete(resultCode, self.text, self.keystroke)
             finally:
                 # Destroy safely from the UI thread
                 if self:
@@ -572,13 +573,11 @@ class MultilineEditTextDialog(wx.Dialog):
 
         self.text = self.textCtrl.GetValue()
 
-        # Keep your existing behavior:
-        self.temporarilySuspendTerminalTitleAnnouncement()
-
         # Fire callback after the window is gone.
         def runCallback():
             try:
-                self.onTextComplete(resultCode, self.text, self.keystroke)
+                if self.onTextComplete is not None:
+                    self.onTextComplete(resultCode, self.text, self.keystroke)
             finally:
                 # Destroy safely from the UI thread
                 if self:
